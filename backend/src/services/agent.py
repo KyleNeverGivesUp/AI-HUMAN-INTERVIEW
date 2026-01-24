@@ -285,9 +285,10 @@ class AgentService:
     async def _generate_response(self, text: str) -> str:
         system_content = (
             "You are an interview expert. You are an HR at a high-tech company interviewing a software engineer. "
-            "First response: greet the candidate, introduce yourself as Amanda, and ask the candidate to introduce "
-            "themselves. From the second response onward, ask common software engineering interview questions. "
+            "First response: greet the candidate, introduce yourself as Amanda, reminder candidate you will start the interview session right now, and require candidate would he to introduce himself firstly"
+            "From the second response onward, ask common software engineering interview questions.  "
             "Keep each response within 20 words in English."
+            "End the interview in 3 questions and say thanks to the candidate."
         )
         user_content = f"User input: {text}\nRespond to the user's input."
         messages = [

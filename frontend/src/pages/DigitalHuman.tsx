@@ -36,6 +36,7 @@ export function DigitalHuman() {
   const livekitVideoRef = useRef<HTMLVideoElement>(null);
   const livekitAudioRef = useRef<HTMLAudioElement>(null);
   const livekitVideoTrackRef = useRef<Track | null>(null);
+  const livekitAudioTrackRef = useRef<Track | null>(null);
   const pendingLatencyRef = useRef<number | null>(null);
 
   const isSessionReady = Boolean(roomName && livekitUrl && livekitToken);
@@ -78,18 +79,30 @@ export function DigitalHuman() {
     }
   };
 
+  const cleanupMedia = () => {
+    if (livekitVideoTrackRef.current) {
+      livekitVideoTrackRef.current.detach();
+      livekitVideoTrackRef.current = null;
+    }
+    if (livekitAudioTrackRef.current) {
+      livekitAudioTrackRef.current.detach();
+      livekitAudioTrackRef.current = null;
+    }
+    if (livekitVideoRef.current) {
+      livekitVideoRef.current.srcObject = null;
+    }
+    if (livekitAudioRef.current) {
+      livekitAudioRef.current.pause();
+      livekitAudioRef.current.srcObject = null;
+    }
+  };
+
   const endSession = async () => {
+    const roomToEnd = roomName;
+    cleanupMedia();
     if (livekitRoomRef.current) {
       livekitRoomRef.current.disconnect();
       livekitRoomRef.current = null;
-    }
-
-    if (roomName) {
-      try {
-        await axios.delete(`${API_URL}/api/rooms/${roomName}`);
-      } catch (error) {
-        console.error('Failed to end session:', error);
-      }
     }
 
     setRoomName('');
@@ -103,6 +116,14 @@ export function DigitalHuman() {
     setLivekitParticipants([]);
     livekitJoinTimesRef.current.clear();
     livekitJoinedLoggedRef.current.clear();
+
+    if (roomToEnd) {
+      try {
+        await axios.delete(`${API_URL}/api/rooms/${roomToEnd}`, { timeout: 5000 });
+      } catch (error) {
+        console.error('Failed to end session:', error);
+      }
+    }
   };
 
   const handleSendMessage = async (text: string) => {
@@ -221,6 +242,9 @@ export function DigitalHuman() {
 
         const attachTrack = (track: Track) => {
           if (track.kind === Track.Kind.Video) {
+            if (livekitVideoTrackRef.current && livekitVideoTrackRef.current !== track) {
+              livekitVideoTrackRef.current.detach();
+            }
             livekitVideoTrackRef.current = track;
             setLivekitHasVideo(true);
             if (livekitVideoRef.current) {
@@ -228,6 +252,10 @@ export function DigitalHuman() {
             }
           }
           if (track.kind === Track.Kind.Audio) {
+            if (livekitAudioTrackRef.current && livekitAudioTrackRef.current !== track) {
+              livekitAudioTrackRef.current.detach();
+            }
+            livekitAudioTrackRef.current = track;
             setLivekitHasAudio(true);
             if (livekitAudioRef.current) {
               track.attach(livekitAudioRef.current);
@@ -259,6 +287,11 @@ export function DigitalHuman() {
           }
           if (track.kind === Track.Kind.Audio) {
             setLivekitHasAudio(false);
+            livekitAudioTrackRef.current = null;
+            if (livekitAudioRef.current) {
+              livekitAudioRef.current.pause();
+              livekitAudioRef.current.srcObject = null;
+            }
           }
         });
 
@@ -266,6 +299,7 @@ export function DigitalHuman() {
         room.on(RoomEvent.ParticipantDisconnected, updateParticipantState);
 
         room.on(RoomEvent.Disconnected, () => {
+          cleanupMedia();
           setLivekitConnected(false);
           setLivekitHasVideo(false);
           setLivekitHasAudio(false);
@@ -293,6 +327,7 @@ export function DigitalHuman() {
         livekitRoomRef.current.disconnect();
         livekitRoomRef.current = null;
       }
+      cleanupMedia();
     };
   }, [livekitUrl, livekitToken]);
 
@@ -393,10 +428,21 @@ export function DigitalHuman() {
                           <div className="w-32 h-32 mx-auto mb-4 rounded-full bg-white/10 backdrop-blur-lg flex items-center justify-center animate-pulse">
                             <Mic className="w-16 h-16" />
                           </div>
-                          <p className="text-xl font-semibold">Waiting for avatar video track...</p>
-                          <p className="text-sm text-white/70 mt-2">
-                            Make sure Tavus is enabled and the avatar joins the room.
-                          </p>
+                          {livekitHasAudio ? (
+                            <>
+                              <p className="text-xl font-semibold">Audio-only mode</p>
+                              <p className="text-sm text-white/70 mt-2">
+                                Video track is not available for this session.
+                              </p>
+                            </>
+                          ) : (
+                            <>
+                              <p className="text-xl font-semibold">Waiting for avatar video track...</p>
+                              <p className="text-sm text-white/70 mt-2">
+                                Make sure Tavus is enabled and the avatar joins the room.
+                              </p>
+                            </>
+                          )}
                         </div>
                       </div>
                     )}
