@@ -7,9 +7,8 @@ import uvicorn
 
 from .config.settings import settings
 from .api.routes import router
-from .services.digital_human_service import digital_human_service
+from .services.agent import agent_service
 from .services.avatar import tavus_avatar_service
-from .services.tavus_agent_service import tavus_agent_service
 
 # Configure logging
 logging.basicConfig(
@@ -66,7 +65,7 @@ async def startup_event():
     if not settings.livekit_api_key:
         logger.warning("LiveKit API key not configured")
     if settings.use_tavus:
-        await tavus_agent_service.start()
+        await tavus_avatar_service.start()
         await tavus_avatar_service.start()
 
 
@@ -74,14 +73,14 @@ async def startup_event():
 async def shutdown_event():
     """Application shutdown"""
     logger.info("Shutting down LibaAI Digital Human API")
-    rooms = list(digital_human_service.active_sessions.keys())
+    rooms = list(agent_service.active_sessions.keys())
     for room_name in rooms:
         try:
-            await digital_human_service.end_session(room_name)
+            await agent_service.end_session(room_name)
         except Exception as e:
             logger.error("Failed to clean LiveKit room %s on shutdown: %s", room_name, e)
     if settings.use_tavus:
-        await tavus_agent_service.stop()
+        await tavus_avatar_service.stop()
         await tavus_avatar_service.stop()
 
 

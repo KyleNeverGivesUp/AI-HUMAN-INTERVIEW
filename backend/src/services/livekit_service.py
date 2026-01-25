@@ -229,6 +229,7 @@ class LiveKitService:
         room_name: str,
         participant_name: str = "DigitalHuman",
         connect_timeout_s: int = 5,
+        publish_video: bool = True,
     ):
         """Ensure a participant is connected (matches minimal LiveKit example)."""
         if room_name in self.publishers:
@@ -281,11 +282,12 @@ class LiveKitService:
         await room.local_participant.publish_track(audio_track)
         publisher["audio_source"] = audio_source
         publisher["audio_track"] = audio_track
-        video_source = rtc.VideoSource(width=640, height=360)
-        video_track = rtc.LocalVideoTrack.create_video_track("ai-video", video_source)
-        await room.local_participant.publish_track(video_track)
-        publisher["video_source"] = video_source
-        publisher["video_track"] = video_track
+        if publish_video:
+            video_source = rtc.VideoSource(width=640, height=360)
+            video_track = rtc.LocalVideoTrack.create_video_track("ai-video", video_source)
+            await room.local_participant.publish_track(video_track)
+            publisher["video_source"] = video_source
+            publisher["video_track"] = video_track
         self.publishers[room_name] = publisher
         return publisher
 
@@ -314,6 +316,14 @@ class LiveKitService:
             num_channels=num_channels,
             samples_per_channel=samples_per_channel,
         )
+        if not publisher.get("_logged_audio_first_frame"):
+            logger.info(
+                "LiveKit audio first frame room=%s bytes=%s samples=%s",
+                room_name,
+                len(pcm_data),
+                samples_per_channel,
+            )
+            publisher["_logged_audio_first_frame"] = True
         result = audio_source.capture_frame(frame)
         if asyncio.iscoroutine(result):
             await result

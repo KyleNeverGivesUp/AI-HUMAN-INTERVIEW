@@ -14,6 +14,7 @@ class RoomCreateResponse(BaseModel):
     token: str = Field(..., description="LiveKit access token")
     room_name: str = Field(..., description="Room name")
     url: str = Field(..., description="LiveKit server URL")
+    use_tavus: bool = Field(..., description="Whether avatar video is enabled for this session")
 
 
 class SayRequest(BaseModel):

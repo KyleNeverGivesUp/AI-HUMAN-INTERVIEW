@@ -50,9 +50,16 @@ class EdgeTTSService:
 
         if file_path.exists():
             logger.info("Using cached TTS audio: %s", filename)
-            async for chunk in self._yield_pcm_from_mp3(file_path):
-                yield chunk
-            return
+            try:
+                async for chunk in self._yield_pcm_from_mp3(file_path):
+                    yield chunk
+                return
+            except Exception as exc:
+                logger.warning("Cached TTS decode failed, regenerating: %s", exc)
+                try:
+                    file_path.unlink()
+                except Exception:
+                    pass
 
         try:
             async for chunk in self._stream_pcm_from_edge_tts(text, file_path):
@@ -139,6 +146,7 @@ class EdgeTTSService:
                 raise feed_error
 
     async def _yield_pcm_from_mp3(self, file_path: Path):
+        logger.info("Decoding cached TTS audio with ffmpeg: %s", file_path.name)
         cmd = [
             self._ffmpeg_path,
             "-hide_banner",
@@ -161,8 +169,24 @@ class EdgeTTSService:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+        first_chunk_logged = False
         try:
             assert process.stdout is not None
+            try:
+                first_chunk = await asyncio.wait_for(
+                    process.stdout.read(settings.openai_tts_chunk_bytes),
+                    timeout=2,
+                )
+            except asyncio.TimeoutError as exc:
+                raise RuntimeError("ffmpeg decode timeout") from exc
+
+            if first_chunk:
+                logger.info("ffmpeg PCM chunk bytes=%s", len(first_chunk))
+                first_chunk_logged = True
+                yield first_chunk
+            else:
+                return
+
             while True:
                 chunk = await process.stdout.read(settings.openai_tts_chunk_bytes)
                 if not chunk:
@@ -175,6 +199,8 @@ class EdgeTTSService:
             returncode = await process.wait()
             if returncode != 0:
                 logger.error("ffmpeg decode failed (%s): %s", returncode, stderr_output.decode())
+            else:
+                logger.info("ffmpeg decode finished (%s)", returncode)
 
 
 openai_tts_service = EdgeTTSService()

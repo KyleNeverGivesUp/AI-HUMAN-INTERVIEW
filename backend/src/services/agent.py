@@ -13,6 +13,7 @@ from ..config.settings import settings
 logger = logging.getLogger(__name__)
 
 _llm_client: OpenAI | None = None
+FINISH_MESSAGE = "This interview is finished. Thank you for participating."
 
 
 def _get_llm_client() -> OpenAI:
@@ -75,6 +76,9 @@ class AgentService:
                 "client_ws": None,
                 "tts_task": None,
                 "publisher_task": None,
+                "greeted": False,
+                "question_count": 0,
+                "turn_count": 0,
             }
 
             use_tavus = settings.use_tavus and self.tavus.enabled
@@ -90,7 +94,11 @@ class AgentService:
 
             if not use_tavus:
                 publisher_task = asyncio.create_task(
-                    self.livekit.ensure_publisher(room_name, participant_name="tts-bot")
+                    self.livekit.ensure_publisher(
+                        room_name,
+                        participant_name="tts-bot",
+                        publish_video=False,
+                    )
                 )
                 self._track_task(session_id, publisher_task, "publisher_task")
 
@@ -107,6 +115,7 @@ class AgentService:
                 "token": token,
                 "room_name": room_name,
                 "livekit_url": self.livekit.url,
+                "use_tavus": use_tavus,
             }
 
         except Exception as e:
@@ -124,8 +133,22 @@ class AgentService:
             if not session:
                 raise ValueError(f"Session {room_name} not found")
 
-            response_text = await self._generate_response(text)
+            turn_count = int(session.get("turn_count", 0)) + 1
+            session["turn_count"] = turn_count
+
+            response_text = await self._generate_response(
+                text=text,
+                greeted=bool(session.get("greeted")),
+                question_count=int(session.get("question_count", 0)),
+                turn_count=turn_count,
+            )
             logger.info("Say text for room=%s text=%s", room_name, response_text)
+
+            if not session.get("greeted"):
+                session["greeted"] = True
+            else:
+                if response_text != FINISH_MESSAGE:
+                    session["question_count"] = int(session.get("question_count", 0)) + 1
 
             use_tavus = settings.use_tavus and self.tavus.enabled
             if use_tavus:
@@ -215,6 +238,7 @@ class AgentService:
         if not publisher:
             logger.warning("LiveKit publisher unavailable for room %s", room_name)
             return
+        logger.info("TTS stream start room=%s text_len=%s", room_name, len(text))
 
         sample_rate = settings.openai_tts_sample_rate
         num_channels = settings.openai_tts_channels
@@ -227,14 +251,20 @@ class AgentService:
         start_time = asyncio.get_event_loop().time()
 
         first_frame = True
+        first_chunk_logged = False
         async for chunk in self.tts.iter_pcm_bytes(text):
             if not chunk:
                 continue
+            if not first_chunk_logged:
+                logger.info("TTS PCM chunk received room=%s bytes=%s", room_name, len(chunk))
+                first_chunk_logged = True
             buffer.extend(chunk)
 
             while len(buffer) >= frame_bytes:
                 frame = bytes(buffer[:frame_bytes])
                 del buffer[:frame_bytes]
+                if first_frame:
+                    logger.info("Publishing first audio frame room=%s bytes=%s", room_name, len(frame))
                 await self.livekit.publish_audio_frame(
                     room_name=room_name,
                     pcm_data=frame,
@@ -252,6 +282,9 @@ class AgentService:
                     first_frame = False
                 samples_sent += frame_samples
                 await self._pace_audio(samples_sent, sample_rate, start_time)
+
+        if samples_sent == 0:
+            logger.warning("TTS stream ended without audio frames room=%s", room_name)
 
         if buffer:
             remainder = len(buffer) - (len(buffer) % (bytes_per_sample * num_channels))
@@ -282,14 +315,32 @@ class AgentService:
         if expected > elapsed:
             await asyncio.sleep(expected - elapsed)
 
-    async def _generate_response(self, text: str) -> str:
-        system_content = (
-            "You are an interview expert. You are an HR at a high-tech company interviewing a software engineer. "
-            "First response: greet the candidate, introduce yourself as Amanda, reminder candidate you will start the interview session right now, and require candidate would he to introduce himself firstly"
-            "From the second response onward, ask common software engineering interview questions.  "
-            "Keep each response within 20 words in English."
-            "End the interview in 3 questions and say thanks to the candidate."
-        )
+    async def _generate_response(
+        self,
+        text: str,
+        greeted: bool,
+        question_count: int,
+        turn_count: int,
+    ) -> str:
+        max_turns = 7
+        if turn_count >= max_turns:
+            return FINISH_MESSAGE
+
+        max_questions = 5
+
+        if not greeted:
+            system_content = (
+                "You are an interview expert. You are an HR at a high-tech company interviewing a software engineer. "
+                "Greet the candidate, introduce yourself as Amanda, say the interview starts now, and ask them to introduce themselves. "
+                "Keep it within 20 words in English."
+            )
+        else:
+            next_q_num = question_count + 1
+            system_content = (
+                "You are an interview expert. You are an HR at a high-tech company interviewing a software engineer. "
+                f"Ask interview question #{next_q_num} of {max_questions}. Keep it within 20 words in English. "
+                "Do not repeat the greeting or the introduction request."
+            )
         user_content = f"User input: {text}\nRespond to the user's input."
         messages = [
             {"role": "system", "content": system_content},

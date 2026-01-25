@@ -24,6 +24,7 @@ export function DigitalHuman() {
   const [livekitConnected, setLivekitConnected] = useState(false);
   const [livekitHasVideo, setLivekitHasVideo] = useState(false);
   const [livekitHasAudio, setLivekitHasAudio] = useState(false);
+  const [useAvatar, setUseAvatar] = useState<boolean | null>(null);
   const [livekitParticipantCount, setLivekitParticipantCount] = useState(0);
   const [livekitParticipants, setLivekitParticipants] = useState<string[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -70,6 +71,7 @@ export function DigitalHuman() {
       setRoomName(generatedRoomName);
       setLivekitUrl(response.data?.url ?? null);
       setLivekitToken(response.data?.token ?? null);
+      setUseAvatar(typeof response.data?.use_tavus === 'boolean' ? response.data.use_tavus : null);
       addSystemMessage('LiveKit session created. Connecting...');
     } catch (error) {
       console.error('Failed to create session:', error);
@@ -114,6 +116,7 @@ export function DigitalHuman() {
     setLivekitHasAudio(false);
     setLivekitParticipantCount(0);
     setLivekitParticipants([]);
+    setUseAvatar(null);
     livekitJoinTimesRef.current.clear();
     livekitJoinedLoggedRef.current.clear();
 
@@ -182,6 +185,16 @@ export function DigitalHuman() {
       try {
         const room = new Room();
         await room.connect(livekitUrl, livekitToken, { autoSubscribe: true });
+        console.log('[LiveKit] connected', {
+          name: room.name,
+          identity: room.localParticipant?.identity,
+        });
+        try {
+          await room.startAudio();
+        } catch (error) {
+          console.warn('LiveKit audio start blocked:', error);
+          addSystemMessage('Audio is blocked by the browser. Click to enable audio playback.');
+        }
         if (isCancelled) {
           room.disconnect();
           return;
@@ -250,6 +263,7 @@ export function DigitalHuman() {
             if (livekitVideoRef.current) {
               track.attach(livekitVideoRef.current);
             }
+            console.log('[LiveKit] video track attached', track);
           }
           if (track.kind === Track.Kind.Audio) {
             if (livekitAudioTrackRef.current && livekitAudioTrackRef.current !== track) {
@@ -259,7 +273,9 @@ export function DigitalHuman() {
             setLivekitHasAudio(true);
             if (livekitAudioRef.current) {
               track.attach(livekitAudioRef.current);
+              livekitAudioRef.current.play().catch(() => null);
             }
+            console.log('[LiveKit] audio track attached', track);
           }
         };
 
@@ -274,12 +290,14 @@ export function DigitalHuman() {
         };
 
         room.on(RoomEvent.TrackSubscribed, (track) => {
+          console.log('[LiveKit] track subscribed', track.kind);
           attachTrack(track);
         });
 
         attachExistingTracks();
 
         room.on(RoomEvent.TrackUnsubscribed, (track) => {
+          console.log('[LiveKit] track unsubscribed', track.kind);
           track.detach();
           if (track.kind === Track.Kind.Video) {
             setLivekitHasVideo(false);
@@ -293,6 +311,10 @@ export function DigitalHuman() {
               livekitAudioRef.current.srcObject = null;
             }
           }
+        });
+
+        room.on(RoomEvent.TrackSubscriptionFailed, (trackSid, participant, error) => {
+          console.warn('[LiveKit] track subscription failed', { trackSid, participant, error });
         });
 
         room.on(RoomEvent.ParticipantConnected, updateParticipantState);
@@ -355,16 +377,44 @@ export function DigitalHuman() {
   }, [isSessionReady]);
 
   useEffect(() => {
+    if (!isSessionReady) return;
+    const audioEl = livekitAudioRef.current;
+    if (!audioEl) return;
+
+    const logEvent = (event: Event) => {
+      console.log('[Audio]', event.type, {
+        paused: audioEl.paused,
+        muted: audioEl.muted,
+        readyState: audioEl.readyState,
+        currentTime: audioEl.currentTime,
+      });
+    };
+
+    const events = ['play', 'playing', 'pause', 'ended', 'stalled', 'waiting', 'error'];
+    events.forEach((type) => audioEl.addEventListener(type, logEvent));
+    return () => {
+      events.forEach((type) => audioEl.removeEventListener(type, logEvent));
+    };
+  }, [isSessionReady, livekitHasAudio]);
+
+  useEffect(() => {
     if (livekitVideoRef.current && livekitVideoTrackRef.current) {
       livekitVideoTrackRef.current.attach(livekitVideoRef.current);
     }
   }, [livekitHasVideo]);
 
+  useEffect(() => {
+    if (livekitAudioRef.current && livekitAudioTrackRef.current) {
+      livekitAudioTrackRef.current.attach(livekitAudioRef.current);
+      livekitAudioRef.current.play().catch(() => null);
+    }
+  }, [livekitHasAudio]);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-blue-50 to-indigo-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-between pt-4 text-sm text-gray-600">
-          <div className="flex items-center space-x-3">
+        <div className="flex flex-col gap-2 pt-4 text-xs text-gray-600 sm:flex-row sm:items-center sm:justify-between sm:text-sm">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <Link to="/" className="hover:text-gray-900 transition-colors">
               Job Board
             </Link>
@@ -380,10 +430,12 @@ export function DigitalHuman() {
           animate={{ opacity: 1, y: 0 }}
           className="text-center mb-8 pt-6"
         >
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
             AI Interview Studio
           </h1>
-          <p className="text-gray-600">Real-time mock interview with live AI avatar</p>
+          <p className="text-sm sm:text-base text-gray-600">
+            Real-time mock interview with live AI avatar
+          </p>
         </motion.div>
 
         <motion.div
@@ -407,7 +459,7 @@ export function DigitalHuman() {
                       <button
                         onClick={createSession}
                         disabled={isConnecting}
-                        className="btn-primary px-8 py-4 text-lg disabled:cursor-not-allowed disabled:opacity-60"
+                        className="btn-primary px-6 py-3 text-base sm:px-8 sm:py-4 sm:text-lg disabled:cursor-not-allowed disabled:opacity-60"
                       >
                         {isConnecting ? 'Starting...' : 'Start Session'}
                       </button>
@@ -428,11 +480,11 @@ export function DigitalHuman() {
                           <div className="w-32 h-32 mx-auto mb-4 rounded-full bg-white/10 backdrop-blur-lg flex items-center justify-center animate-pulse">
                             <Mic className="w-16 h-16" />
                           </div>
-                          {livekitHasAudio ? (
+                          {useAvatar === false ? (
                             <>
                               <p className="text-xl font-semibold">Audio-only mode</p>
                               <p className="text-sm text-white/70 mt-2">
-                                Video track is not available for this session.
+                                Video track is disabled for this session.
                               </p>
                             </>
                           ) : (
@@ -464,7 +516,7 @@ export function DigitalHuman() {
 
               {isSessionReady && (
                 <div className="mt-4 p-4 bg-white rounded-lg border border-gray-200">
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex flex-col gap-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                     <div className="flex items-center space-x-2">
                       <div
                         className={`w-2 h-2 rounded-full ${
@@ -475,8 +527,8 @@ export function DigitalHuman() {
                         {livekitConnected ? 'Connected' : 'Connecting...'}
                       </span>
                     </div>
-                    <div className="flex items-center space-x-4 text-gray-500">
-                      <span>Room: {roomName}</span>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-gray-500">
+                      <span className="truncate">Room: {roomName}</span>
                       <span>Participants: {livekitParticipantCount}</span>
                     </div>
                   </div>
@@ -485,7 +537,7 @@ export function DigitalHuman() {
                   </div>
                   <div className="mt-1 text-xs text-gray-500">
                     Audio: {livekitHasAudio ? 'active' : 'waiting'} · Video:{' '}
-                    {livekitHasVideo ? 'active' : 'waiting'}
+                    {useAvatar === false ? 'not active' : livekitHasVideo ? 'active' : 'waiting'}
                   </div>
                   <div className="mt-1 text-xs text-gray-500">
                     Latency (t2-t0): {lastLatencyMs ? `${Math.round(lastLatencyMs)} ms` : '-'}
@@ -497,7 +549,7 @@ export function DigitalHuman() {
             <div className="flex flex-col gap-6">
               <div className="card h-full flex flex-col">
                 <h3 className="text-lg font-bold mb-4">Chat</h3>
-                <div className="flex-1 min-h-[200px] max-h-[420px] overflow-y-auto space-y-3">
+                <div className="flex-1 min-h-[160px] max-h-[42vh] sm:min-h-[200px] sm:max-h-[420px] overflow-y-auto space-y-3">
                   {messages.length === 0 ? (
                     <div className="text-center text-gray-500 mt-6">
                       <p className="mb-2">💬 Waiting for messages</p>
@@ -524,7 +576,11 @@ export function DigitalHuman() {
                           animate={{ opacity: 1, y: 0 }}
                           className={containerClass}
                         >
-                          <div className={`${bubbleClass} px-4 py-2 rounded-2xl`}>{msg.text}</div>
+                          <div
+                            className={`${bubbleClass} px-4 py-2 rounded-2xl text-sm sm:text-base break-words max-w-[85%] sm:max-w-[75%]`}
+                          >
+                            {msg.text}
+                          </div>
                         </motion.div>
                       );
                     })
@@ -550,7 +606,7 @@ export function DigitalHuman() {
                 </div>
 
                 <div className="mt-4">
-                  <div className="flex items-end space-x-2">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:space-x-2 sm:gap-0">
                     <textarea
                       value={message}
                       onChange={(e) => setMessage(e.target.value)}
@@ -562,7 +618,7 @@ export function DigitalHuman() {
                     <button
                       onClick={sendMessage}
                       disabled={!message.trim() || isProcessing || !livekitConnected}
-                      className="p-3 rounded-xl bg-primary text-white hover:bg-primary-dark transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                      className="w-full sm:w-auto p-3 rounded-xl bg-primary text-white hover:bg-primary-dark transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       <Send className="w-5 h-5" />
                     </button>

@@ -1,6 +1,8 @@
-# AI Interview Studio (LiveKit + Tavus)
+# AI Avatar Interview Studio
 
-Real-time AI interview demo. Text in, AI avatar speaks in sync with audio/video.
+Real-time AI interview application. Text in, AI avatar speaks in sync with audio/video.
+
+This repository is a challenge covering both the frontend job board and the backend real‑time digital human tasks.
 
 ## What It Does
 - Frontend joins a LiveKit room and plays remote tracks.
@@ -82,3 +84,46 @@ CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
 - `backend/src/services/avatar.py` Tavus AvatarSession.
 - `backend/src/api/routes.py` `/api/rooms/create`, `/api/say`.
 - `frontend/src/pages/DigitalHuman.tsx` LiveKit UI.
+
+---
+
+# Challenge Response
+
+## 1) Frontend Engineering Ability Test
+
+### Scope (Job Board + Recommendation Page)
+- Implemented the job board and recommendation experience based on the provided Figma.
+- Added small JS interaction enhancements for usability (chat input, smooth scrolling, etc.).
+
+### Responsive Design (iPhone / iPad)
+Responsive design is implemented with a **mobile‑first** approach:
+- Uses **Tailwind CSS** breakpoints (`sm`, `lg`) to adapt layout and typography.
+- On iPhone: reduced padding and font sizes, allowed wrapping of nav/status rows, capped bubble width with word‑break, and stacked input controls vertically for better touch targets.
+- On iPad: keeps a two‑column layout with larger spacing while keeping the chat panel and video area readable.
+
+### Frontend Stack
+- **React + TypeScript + Vite**
+- **Tailwind CSS** for utility‑first responsive styling
+- **Zustand** for lightweight shared state where needed
+
+## 2) Backend Engineering Ability Test
+
+### LiveKit Integration
+- Creates rooms and tokens, connects a publisher (`tts-bot`) and streams PCM audio frames.
+
+### Tavus Persona API Integration
+- When `USE_TAVUS=true`, Tavus renders the avatar and publishes synchronized video+audio tracks.
+- When `USE_TAVUS=false`, the system runs **audio‑only** mode via LiveKit.
+
+### Real‑Time Synchronization
+- TTS is **streamed** as PCM chunks, framed, paced, and published to LiveKit in real time.
+- The frontend subscribes to LiveKit tracks and plays audio/video as they arrive.
+
+## Expected Outcome (Requirement Check)
+**A working prototype of real‑time digital human interaction:**  
+- Text input in, AI avatar speaks in real time with no obvious delay.  
+- Pipeline: **text → LLM → TTS → LiveKit → Tavus (optional) → frontend**.
+
+## Notes
+- LLM output is non‑streaming; **TTS + LiveKit** is real‑time streaming.
+- Audio/video sync is driven by the audio stream with paced frame publishing.

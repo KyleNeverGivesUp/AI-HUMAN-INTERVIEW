@@ -10,7 +10,7 @@ from ..models.schemas import (
     StreamStatus,
     HealthResponse,
 )
-from ..services.digital_human_service import digital_human_service
+from ..services.agent import agent_service
 from ..services.livekit_service import livekit_service
 from ..config.settings import settings
 
@@ -42,7 +42,7 @@ async def create_room(request: RoomCreateRequest):
     Returns access token for the client to connect.
     """
     try:
-        session = await digital_human_service.create_session(
+        session = await agent_service.create_session(
             room_name=request.room_name,
             participant_name=request.participant_name,
         )
@@ -63,6 +63,7 @@ async def create_room(request: RoomCreateRequest):
             token=session["token"],
             room_name=session["room_name"],
             url=session["livekit_url"],
+            use_tavus=session.get("use_tavus", False),
         )
         
     except Exception as e:
@@ -78,7 +79,7 @@ async def say_text(request: SayRequest):
     try:
         t0_ms = time.time() * 1000
         logger.info("Say request received room=%s text=%s", request.room_name, request.text)
-        result = await digital_human_service.say_text(
+        result = await agent_service.say_text(
             room_name=request.room_name,
             text=request.text,
             t0_ms=t0_ms,
@@ -97,7 +98,7 @@ async def say_text(request: SayRequest):
 async def get_room_status(room_name: str):
     """Get status of a room/session"""
     try:
-        session = digital_human_service.get_session_status(room_name)
+        session = agent_service.get_session_status(room_name)
         
         if not session:
             raise HTTPException(status_code=404, detail="Room not found")
@@ -121,7 +122,7 @@ async def get_room_status(room_name: str):
 async def end_room(room_name: str):
     """End a room/session"""
     try:
-        success = await digital_human_service.end_session(room_name)
+        success = await agent_service.end_session(room_name)
         
         if not success:
             raise HTTPException(status_code=404, detail="Room not found")
@@ -143,11 +144,11 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str):
     """
     await websocket.accept()
     logger.info(f"WebSocket connected for room: {room_name}")
-    await digital_human_service.register_client_ws(room_name, websocket)
+    await agent_service.register_client_ws(room_name, websocket)
     
     try:
         # Check if session exists
-        session = digital_human_service.get_session_status(room_name)
+        session = agent_service.get_session_status(room_name)
         if not session:
             await websocket.send_json({
                 "type": "error",
@@ -180,7 +181,7 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str):
                 
                 try:
                     # Process message and get response
-                    response = await digital_human_service.process_message(
+                    response = await agent_service.process_message(
                         room_name=room_name,
                         message=user_message
                     )
@@ -215,7 +216,7 @@ async def websocket_endpoint(websocket: WebSocket, room_name: str):
         except:
             pass
     finally:
-        await digital_human_service.unregister_client_ws(room_name, websocket)
+        await agent_service.unregister_client_ws(room_name, websocket)
         try:
             await websocket.close()
         except:
