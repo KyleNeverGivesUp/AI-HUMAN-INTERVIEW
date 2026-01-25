@@ -87,9 +87,7 @@ CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
 
 ---
 
-# Challenge Response
-
-## 1) Frontend Engineering Ability Test
+## 1) Frontend Engineering
 
 ### Scope (Job Board + Recommendation Page)
 - Implemented the job board and recommendation experience based on the provided Figma.
@@ -106,7 +104,7 @@ Responsive design is implemented with a **mobile‑first** approach:
 - **Tailwind CSS** for utility‑first responsive styling
 - **Zustand** for lightweight shared state where needed
 
-## 2) Backend Engineering Ability Test
+## 2) Backend Engineering
 
 ### LiveKit Integration
 - Creates rooms and tokens, connects a publisher (`tts-bot`) and streams PCM audio frames.
