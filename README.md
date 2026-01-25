@@ -117,10 +117,10 @@ Responsive design is implemented with a **mobile‑first** approach:
 - TTS is **streamed** as PCM chunks, framed, paced, and published to LiveKit in real time.
 - The frontend subscribes to LiveKit tracks and plays audio/video as they arrive.
 
-## Expected Outcome (Requirement Check)
+## Expected Outcome
 **A working prototype of real‑time digital human interaction:**  
 - Text input in, AI avatar speaks in real time with no obvious delay.  
-- Pipeline: **text → LLM → TTS → LiveKit → Tavus (optional) → frontend**.
+- Pipeline: **text → LLM → TTS → LiveKit → Tavus → frontend**.
 
 ## Notes
 - LLM output is non‑streaming; **TTS + LiveKit** is real‑time streaming.
