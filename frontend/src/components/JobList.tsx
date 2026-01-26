@@ -26,24 +26,24 @@ export function JobList() {
     <div className="flex-1 min-w-0">
       {/* Header */}
       <div className="mb-6">
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-gray-900">
             1 hours 🔥{' '}
             <span className="text-primary">JobSeeker</span>
           </h1>
-          <button className="btn-primary">
+          <button className="btn-primary w-full sm:w-auto">
             🔄 Change Job Reference
           </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex items-center space-x-2 mb-4">
+        <div className="grid grid-cols-4 gap-2 mb-4">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setCurrentTab(tab.id)}
               className={cn(
-                "px-6 py-2.5 rounded-lg font-medium transition-all duration-200 relative",
+                "px-3 py-2 text-sm sm:px-6 sm:py-2.5 sm:text-base rounded-lg font-medium transition-all duration-200 relative text-center",
                 currentTab === tab.id
                   ? "bg-white text-gray-900 shadow-md"
                   : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
@@ -64,13 +64,13 @@ export function JobList() {
               )}
             </button>
           ))}
-          <button className="ml-auto p-2.5 rounded-lg text-gray-600 hover:bg-gray-100 transition-colors">
-            📊 Top matched
+          <button className="px-3 py-2 text-sm sm:px-6 sm:py-2.5 sm:text-base rounded-lg font-medium transition-all duration-200 text-center text-gray-600 hover:text-gray-900 hover:bg-gray-100">
+            Top matched
           </button>
         </div>
 
         {/* Search and Filter */}
-        <div className="flex items-center space-x-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
@@ -81,7 +81,7 @@ export function JobList() {
               className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
             />
           </div>
-          <button className="p-2.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">
+          <button className="w-full sm:w-auto p-2.5 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 transition-colors">
             <SlidersHorizontal className="w-5 h-5" />
           </button>
         </div>

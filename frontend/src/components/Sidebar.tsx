@@ -47,10 +47,10 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
       {/* Sidebar */}
       <aside
         className={cn(
-          "fixed left-0 top-0 h-screen w-64 bg-white border-r border-gray-200 z-50",
+          "fixed left-0 top-0 h-[100dvh] w-64 bg-white border-r border-gray-200 z-50",
           "flex flex-col transition-transform duration-300",
           isOpen ? "translate-x-0" : "-translate-x-full",
-          "lg:translate-x-0 lg:static lg:z-auto"
+          "lg:translate-x-0 lg:h-screen"
         )}
       >
         {/* Header */}
