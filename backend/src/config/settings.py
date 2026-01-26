@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     app_origin: str = "http://localhost:8000"
     app_name: str = "My-FastAPI-App"
 
+    # Anthropic LLM Configuration
+    anthropic_api_key: str = "sk-sWvhQxwBEnYocbTiSD55IsrykENDAZuYwOjudHk9a67sDpjS"
+    anthropic_model: str = "claude-sonnet-4-5-20250929"
+
     # Tavus Configuration
     tavus_api_key: str = ""
     tavus_api_url: str = "https://tavusapi.com"

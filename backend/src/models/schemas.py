@@ -44,3 +44,21 @@ class HealthResponse(BaseModel):
     status: str = "healthy"
     version: str = "0.1.0"
     services: dict[str, str] = {}
+
+class SkillMetadata(BaseModel):
+    id: str
+    title: str
+    source: str
+    version: Optional[str] = None
+    description: Optional[str] = None
+
+
+class SkillExecuteRequest(BaseModel):
+    query: str
+    skill_id: Optional[str] = None
+
+
+class SkillExecuteResponse(BaseModel):
+    response: str
+    selected_skill: Optional[SkillMetadata] = None
+    selection_reason: Optional[str] = None
