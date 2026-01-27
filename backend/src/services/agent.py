@@ -5,6 +5,11 @@ from typing import Optional
 
 from openai import OpenAI
 
+from .anthropic_skills_service import (
+    execute_plain,
+    execute_with_skill,
+    select_skill_for_query,
+)
 from .avatar import tavus_avatar_service
 from .livekit_service import livekit_service
 from .openai_tts_service import openai_tts_service
@@ -126,8 +131,62 @@ class AgentService:
         """Echo the text and publish TTS audio to LiveKit."""
         return await self.say_text(room_name=room_name, text=message)
 
+    # async def say_text(self, room_name: str, text: str, t0_ms: float | None = None) -> dict:
+    #     """Process text -> TTS streaming into LiveKit audio track."""
+    #     try:
+    #         session = self.active_sessions.get(room_name)
+    #         if not session:
+    #             raise ValueError(f"Session {room_name} not found")
+    #
+    #         turn_count = int(session.get("turn_count", 0)) + 1
+    #         session["turn_count"] = turn_count
+    #
+    #         response_text = await self._generate_response(
+    #             text=text,
+    #             greeted=bool(session.get("greeted")),
+    #             question_count=int(session.get("question_count", 0)),
+    #             turn_count=turn_count,
+    #         )
+    #         logger.info("Say text for room=%s text=%s", room_name, response_text)
+    #
+    #         if not session.get("greeted"):
+    #             session["greeted"] = True
+    #         else:
+    #             if response_text != FINISH_MESSAGE:
+    #                 session["question_count"] = int(session.get("question_count", 0)) + 1
+    #
+    #         use_tavus = settings.use_tavus and self.tavus.enabled
+    #         if use_tavus:
+    #             try:
+    #                 await self.tavus.ensure_avatar(room_name)
+    #                 self.tavus.enqueue_text(room_name, response_text, t0_ms=t0_ms)
+    #             except Exception as e:
+    #                 logger.warning("Tavus enqueue failed; falling back to TTS: %s", e)
+    #                 use_tavus = False
+    #
+    #         if not use_tavus:
+    #             existing_task = session.get("tts_task")
+    #             if existing_task and not existing_task.done():
+    #                 existing_task.cancel()
+    #
+    #             tts_task = asyncio.create_task(
+    #                 self._stream_tts_to_livekit(room_name, response_text, t0_ms=t0_ms)
+    #             )
+    #             self._track_task(room_name, tts_task, "tts_task")
+    #
+    #         return {
+    #             "session_id": room_name,
+    #             "response": response_text,
+    #             "audio_url": None,
+    #             "video_url": None,
+    #         }
+    #
+    #     except Exception as e:
+    #         logger.error("Failed to process message: %s", e)
+    #         raise
+
     async def say_text(self, room_name: str, text: str, t0_ms: float | None = None) -> dict:
-        """Process text -> TTS streaming into LiveKit audio track."""
+        """Process text via skill selection (Anthropic) or OpenRouter -> TTS streaming into LiveKit."""
         try:
             session = self.active_sessions.get(room_name)
             if not session:
@@ -136,19 +195,34 @@ class AgentService:
             turn_count = int(session.get("turn_count", 0)) + 1
             session["turn_count"] = turn_count
 
-            response_text = await self._generate_response(
-                text=text,
-                greeted=bool(session.get("greeted")),
-                question_count=int(session.get("question_count", 0)),
-                turn_count=turn_count,
-            )
+            used_skill = False
+            if settings.use_skills:
+                response_text = await self._generate_response_with_skills(text=text)
+                if response_text is not None:
+                    used_skill = True
+                else:
+                    response_text = await self._generate_response(
+                        text=text,
+                        greeted=bool(session.get("greeted")),
+                        question_count=int(session.get("question_count", 0)),
+                        turn_count=turn_count,
+                    )
+            else:
+                response_text = await self._generate_response(
+                    text=text,
+                    greeted=bool(session.get("greeted")),
+                    question_count=int(session.get("question_count", 0)),
+                    turn_count=turn_count,
+                )
+
             logger.info("Say text for room=%s text=%s", room_name, response_text)
 
-            if not session.get("greeted"):
-                session["greeted"] = True
-            else:
-                if response_text != FINISH_MESSAGE:
-                    session["question_count"] = int(session.get("question_count", 0)) + 1
+            if not used_skill:
+                if not session.get("greeted"):
+                    session["greeted"] = True
+                else:
+                    if response_text != FINISH_MESSAGE:
+                        session["question_count"] = int(session.get("question_count", 0)) + 1
 
             use_tavus = settings.use_tavus and self.tavus.enabled
             if use_tavus:
@@ -392,6 +466,26 @@ class AgentService:
             return content
 
         return await asyncio.to_thread(_call_llm)
+
+    async def _generate_response_with_skills(self, text: str) -> str | None:
+        def _call() -> str | None:
+            selected, reason = select_skill_for_query(text)
+            if selected:
+                logger.info(
+                    "Skills selection id=%s source=%s reason=%s",
+                    selected.get("id"),
+                    selected.get("source"),
+                    reason,
+                )
+                return execute_with_skill(
+                    query=text,
+                    skill_id=selected["id"],
+                    skill_source=selected["source"],
+                )
+            logger.info("Skills selection none reason=%s", reason)
+            return None
+
+        return await asyncio.to_thread(_call)
 
 
 DigitalHumanService = AgentService

@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     # Anthropic LLM Configuration
     anthropic_api_key: str = "sk-sWvhQxwBEnYocbTiSD55IsrykENDAZuYwOjudHk9a67sDpjS"
     anthropic_model: str = "claude-sonnet-4-5-20250929"
+    use_skills: bool = True
 
     # Tavus Configuration
     tavus_api_key: str = ""

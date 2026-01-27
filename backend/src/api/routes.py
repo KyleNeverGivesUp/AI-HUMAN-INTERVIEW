@@ -10,6 +10,15 @@ from ..models.schemas import (
     StreamStatus,
     HealthResponse,
 )
+
+from ..models.schemas import SkillMetadata, SkillExecuteRequest, SkillExecuteResponse
+from ..services.anthropic_skills_service import (
+    list_skills_metadata,
+    select_skill_for_query,
+    execute_with_skill,
+    execute_plain,
+)
+
 from ..services.agent import agent_service
 from ..services.livekit_service import livekit_service
 from ..config.settings import settings
@@ -233,3 +242,41 @@ async def oauth_probe_stub():
 @router.post("/sse")
 async def sse_probe_stub():
     return {"status": "ok"}
+
+@router.get("/skills/metadata", response_model=list[SkillMetadata])
+async def skills_metadata():
+    return list_skills_metadata()
+
+
+@router.post("/skills/execute", response_model=SkillExecuteResponse)
+async def skills_execute(request: SkillExecuteRequest):
+    selected = None
+    reason = None
+
+    if request.skill_id:
+        selected = next(
+            (s for s in list_skills_metadata() if s["id"] == request.skill_id),
+            None,
+        )
+        reason = "explicit_skill_id"
+    else:
+        selected, reason = select_skill_for_query(request.query)
+
+    if selected:
+        text = execute_with_skill(
+            query=request.query,
+            skill_id=selected["id"],
+            skill_source=selected["source"],
+        )
+        return SkillExecuteResponse(
+            response=text,
+            selected_skill=SkillMetadata(**selected),
+            selection_reason=reason,
+        )
+
+    text = execute_plain(request.query)
+    return SkillExecuteResponse(
+        response=text,
+        selected_skill=None,
+        selection_reason=reason,
+    )
