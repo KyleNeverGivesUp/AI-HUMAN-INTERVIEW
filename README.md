@@ -1,11 +1,12 @@
 # AI Avatar Interview Studio
 
-Real-time AI interview application. Text in, AI avatar speaks in sync with audio/video.
+Real-time multi-modal AI interview application. Text in, AI avatar speaks in sync with audio/video.
 
 This repository is a challenge covering both the frontend job board and the backend real‑time digital human tasks.
 
 ## What It Does
 - Frontend joins a LiveKit room and plays remote tracks.
+- Local Skills layer selects role-specific interview prompts from `backend/skills/`.
 - Backend calls LLM (OpenRouter), runs TTS, and publishes audio.
 - If `USE_TAVUS=true`, Tavus renders the avatar and publishes audio+video tracks.
 - If `USE_TAVUS=false`, only LiveKit audio is published (no avatar video).
@@ -15,6 +16,7 @@ This repository is a challenge covering both the frontend job board and the back
 ```
 User input (browser)
   -> /api/say
+  -> [USE_SKILLS=true] Role prompt + local Skills selection
   -> LLM (OpenRouter lama-3.3-70b)
   -> TTS (Edge)
   -> [USE_TAVUS=true] Tavus AvatarSession -> LiveKit A/V tracks
@@ -58,6 +60,7 @@ TAVUS_API_URL=https://tavusapi.com/v2
 TAVUS_REPLICA_ID=...
 TAVUS_PERSONA_ID=...
 TAVUS_AVATAR_NAME=tavus-avatar-agent
+USE_SKILLS=false
 ```
 
 Optional:
@@ -71,6 +74,11 @@ CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
 - `POST /api/say` Send text to the AI (LLM -> TTS -> publish).
 - `DELETE /api/rooms/{room_name}` End a room.
 - `GET /api/health` Health check.
+
+## Skills (Local)
+- Local Skills live in `backend/skills/<role>/SKILL.md`.
+- When `USE_SKILLS=true`, the backend asks for a role on session start and uses the matching SKILL.md as the system prompt.
+- The flow remains: user input -> role selection -> OpenRouter -> TTS -> LiveKit.
 
 ## Demo Checklist
 - Open `/digital-human`.

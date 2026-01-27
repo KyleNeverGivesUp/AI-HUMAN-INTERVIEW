@@ -3,39 +3,16 @@ import logging
 import time
 from typing import Optional
 
-from openai import OpenAI
-
-from .anthropic_skills_service import (
-    execute_plain,
-    execute_with_skill,
-    select_skill_for_query,
-)
 from .avatar import tavus_avatar_service
 from .livekit_service import livekit_service
+from .local_skills_registry import get_skill_by_id
 from .openai_tts_service import openai_tts_service
+from .openrouter_llm_service import generate_response
 from ..config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-_llm_client: OpenAI | None = None
 FINISH_MESSAGE = "This interview is finished. Thank you for participating."
-
-
-def _get_llm_client() -> OpenAI:
-    global _llm_client
-    if _llm_client is None:
-        api_key = settings.openrouter_api_key
-        if not api_key:
-            raise RuntimeError("OPENROUTER_API_KEY is not set")
-        _llm_client = OpenAI(
-            api_key=api_key,
-            base_url="https://openrouter.ai/api/v1",
-            default_headers={
-                "HTTP-Referer": settings.app_origin,
-                "X-Title": settings.app_name,
-            },
-        )
-    return _llm_client
 
 
 class AgentService:
@@ -84,6 +61,9 @@ class AgentService:
                 "greeted": False,
                 "question_count": 0,
                 "turn_count": 0,
+                "skill_id": None,
+                "role_label": None,
+                "role_prompted": False,
             }
 
             use_tavus = settings.use_tavus and self.tavus.enabled
@@ -197,16 +177,15 @@ class AgentService:
 
             used_skill = False
             if settings.use_skills:
-                response_text = await self._generate_response_with_skills(text=text)
-                if response_text is not None:
-                    used_skill = True
-                else:
+                response_text, used_skill = await self._handle_skills_flow(session, text)
+                if response_text is None:
                     response_text = await self._generate_response(
                         text=text,
                         greeted=bool(session.get("greeted")),
                         question_count=int(session.get("question_count", 0)),
                         turn_count=turn_count,
                     )
+                    used_skill = False
             else:
                 response_text = await self._generate_response(
                     text=text,
@@ -216,6 +195,13 @@ class AgentService:
                 )
 
             logger.info("Say text for room=%s text=%s", room_name, response_text)
+
+            logger.info(
+                "Skills used=%s room=%s skill_id=%s",
+                used_skill,
+                room_name,
+                session.get("skill_id"),
+            )
 
             if not used_skill:
                 if not session.get("greeted"):
@@ -253,6 +239,71 @@ class AgentService:
         except Exception as e:
             logger.error("Failed to process message: %s", e)
             raise
+
+    def _match_role_to_skill(self, text: str) -> tuple[str | None, str | None]:
+        normalized = " ".join(text.lower().replace("/", " ").replace("-", " ").split())
+        if "ai infra" in normalized or "ai infrastructure" in normalized or "infra" in normalized:
+            return "ai-infra-interview", "AI Infra"
+        if (
+            "ml ai" in normalized
+            or "ml/ai" in normalized
+            or "machine learning" in normalized
+            or "ml" in normalized
+        ):
+            return "ml-ai-interview", "ML/AI"
+        if "fullstack" in normalized or "full stack" in normalized:
+            return "fullstack-interview", "Fullstack"
+        if "frontend" in normalized or "front end" in normalized or "front-end" in normalized:
+            return "frontend-interview", "Frontend"
+        if "backend" in normalized or "back end" in normalized or "back-end" in normalized:
+            return "backend-interview", "Backend"
+        if "devops" in normalized or "sre" in normalized or "site reliability" in normalized:
+            return "devops-interview", "DevOps"
+        return None, None
+
+    async def _handle_skills_flow(self, session: dict, text: str) -> tuple[str | None, bool]:
+        if not session.get("role_prompted"):
+            session["role_prompted"] = True
+            response = (
+                "Hello, I'm your interviewer today. "
+                "Which role are you interviewing for? "
+                "Backend, Frontend, Fullstack, ML/AI, AI Infra, or DevOps?"
+            )
+            logger.info(
+                "***SKILLS_GREETING sent room=%s response=%s***",
+                session.get("room_name"),
+                response,
+            )
+            return response, True
+
+        skill_id = session.get("skill_id")
+        if not skill_id:
+            skill_id, role_label = self._match_role_to_skill(text)
+            if not skill_id:
+                response = (
+                    "Sorry, I didn't catch the role. "
+                    "Are you interviewing for Backend, Frontend, Fullstack, ML/AI, AI Infra, or DevOps?"
+                )
+                logger.info(
+                    "***SKILLS_ROLE_REPROMPT room=%s response=%s***",
+                    session.get("room_name"),
+                    response,
+                )
+                return response, True
+            session["skill_id"] = skill_id
+            session["role_label"] = role_label
+            skill = get_skill_by_id(skill_id)
+            if not skill:
+                logger.info("Skills selection id=%s missing locally", skill_id)
+                return None, False
+            prompt = f"The candidate is interviewing for {role_label}. Ask the first interview question."
+            return generate_response(skill["body"], prompt, temperature=0.2), True
+
+        skill = get_skill_by_id(skill_id)
+        if not skill:
+            logger.info("Skills selection id=%s missing locally", skill_id)
+            return None, False
+        return generate_response(skill["body"], text, temperature=0.2), True
 
     async def register_client_ws(self, room_name: str, websocket) -> None:
         session = self.active_sessions.get(room_name)
@@ -416,77 +467,11 @@ class AgentService:
                 "Do not repeat the greeting or the introduction request."
             )
         user_content = f"User input: {text}\nRespond to the user's input."
-        messages = [
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": user_content},
-        ]
-        model = settings.openrouter_model
-        if not model:
-            raise RuntimeError("OPENROUTER_MODEL is not set")
 
         def _call_llm() -> str:
-            client_llm = _get_llm_client()
-            response = client_llm.chat.completions.create(
-                model=model,
-                messages=messages,
-                temperature=0.2,
-            )
-            content = None
-            data = None
-            if hasattr(response, "model_dump"):
-                try:
-                    data = response.model_dump()
-                except Exception:
-                    data = None
-
-            choices = getattr(response, "choices", None)
-            if not choices and isinstance(data, dict):
-                choices = data.get("choices")
-
-            if choices:
-                first = choices[0]
-                message = None
-                if isinstance(first, dict):
-                    message = first.get("message")
-                else:
-                    message = getattr(first, "message", None)
-
-                if isinstance(message, dict):
-                    content = message.get("content")
-                else:
-                    content = getattr(message, "content", None)
-
-            if not content and isinstance(data, dict):
-                content = data.get("output_text")
-
-            if not content:
-                logger.error("LLM returned empty content; response=%s", data or response)
-                raise RuntimeError("LLM returned empty content")
-
-            return content
+            return generate_response(system_content, user_content, temperature=0.2)
 
         return await asyncio.to_thread(_call_llm)
-
-    async def _generate_response_with_skills(self, text: str) -> str | None:
-        def _call() -> str | None:
-            selected, reason = select_skill_for_query(text)
-            if selected:
-                logger.info(
-                    "Skills selection id=%s source=%s reason=%s",
-                    selected.get("id"),
-                    selected.get("source"),
-                    reason,
-                )
-                return execute_with_skill(
-                    query=text,
-                    skill_id=selected["id"],
-                    skill_source=selected["source"],
-                )
-            logger.info("Skills selection none reason=%s", reason)
-            return None
-
-        return await asyncio.to_thread(_call)
-
 
 DigitalHumanService = AgentService
 agent_service = AgentService()

@@ -1,27 +1,29 @@
 ---
 name: devops-interview
-description: Structured interview guide for DevOps/SRE candidates.
+description: Structured interview guide for DevOps/SRE interns.
 ---
 
 # Interview
-- Confirm scope (CI/CD, cloud, SRE responsibilities)
-- Set expectations: 5 questions, concise answers
+- Keep responses concise and natural, like a real interviewer.
+- Ask basic knowledge only; keep questions short and simple.
+- Avoid project-level or complex scenario questions.
+- One question at a time; keep under 12 words.
+- Internship-level candidates only.
 
-# Focus Areas
-- CI/CD pipelines and release strategy
-- Infrastructure as code and automation
-- Observability and SLO/SLI design
-- Incident response and postmortems
-- Security and access controls
+# Focus Areas (Basic)
+- CI/CD basics
+- Containers
+- Kubernetes basics
+- Logging/monitoring
+- Backups/rollbacks
 
-# Question Flow
-1) Recent reliability or ops project
-2) CI/CD design and rollout strategy
-3) Observability stack and SLOs
-4) Incident response example
-5) Security and compliance basics
+# Question Flow (Short)
+1) What is CI/CD?
+2) What is a container?
+3) What does Kubernetes do?
+4) Why is monitoring important?
+5) What is a rollback?
 
 # Evaluation
-- Operational rigor and calm debugging
-- Good balance of speed vs stability
-- Strong automation mindset
+- Clear basic understanding
+- Concise answers

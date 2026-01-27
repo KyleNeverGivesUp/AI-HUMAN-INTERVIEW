@@ -15,9 +15,9 @@ from ..models.schemas import SkillMetadata, SkillExecuteRequest, SkillExecuteRes
 from ..services.anthropic_skills_service import (
     list_skills_metadata,
     select_skill_for_query,
-    execute_with_skill,
-    execute_plain,
 )
+from ..services.local_skills_registry import get_skill_by_id
+from ..services.openrouter_llm_service import generate_response
 
 from ..services.agent import agent_service
 from ..services.livekit_service import livekit_service
@@ -263,18 +263,18 @@ async def skills_execute(request: SkillExecuteRequest):
         selected, reason = select_skill_for_query(request.query)
 
     if selected:
-        text = execute_with_skill(
-            query=request.query,
-            skill_id=selected["id"],
-            skill_source=selected["source"],
-        )
+        skill = get_skill_by_id(selected["id"])
+        if skill:
+            text = generate_response(skill["body"], request.query, temperature=0.2)
+        else:
+            text = generate_response(None, request.query, temperature=0.2)
         return SkillExecuteResponse(
             response=text,
             selected_skill=SkillMetadata(**selected),
             selection_reason=reason,
         )
 
-    text = execute_plain(request.query)
+    text = generate_response(None, request.query, temperature=0.2)
     return SkillExecuteResponse(
         response=text,
         selected_skill=None,
