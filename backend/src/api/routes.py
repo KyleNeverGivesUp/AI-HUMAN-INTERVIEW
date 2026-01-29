@@ -9,15 +9,16 @@ from ..models.schemas import (
     SayResponse,
     StreamStatus,
     HealthResponse,
+    LatencyReportRequest,
 )
 
 from ..models.schemas import SkillMetadata, SkillExecuteRequest, SkillExecuteResponse
 from ..services.anthropic_skills_service import (
     list_skills_metadata,
     select_skill_for_query,
+    generate_response,
 )
 from ..services.local_skills_registry import get_skill_by_id
-from ..services.openrouter_llm_service import generate_response
 
 from ..services.agent import agent_service
 from ..services.livekit_service import livekit_service
@@ -242,6 +243,22 @@ async def oauth_probe_stub():
 @router.post("/sse")
 async def sse_probe_stub():
     return {"status": "ok"}
+
+
+@router.post("/metrics/latency")
+async def report_latency(request: LatencyReportRequest):
+    latency_ms = request.latency_ms
+    if latency_ms is None and request.client_t0_ms and request.client_t1_ms:
+        latency_ms = request.client_t1_ms - request.client_t0_ms
+    logger.info(
+        "***LATENCY_REPORT room=%s status=%s latency_ms=%s t0=%s t1=%s***",
+        request.room_name,
+        request.status,
+        latency_ms,
+        request.client_t0_ms,
+        request.client_t1_ms,
+    )
+    return {"status": "ok", "latency_ms": latency_ms}
 
 @router.get("/skills/metadata", response_model=list[SkillMetadata])
 async def skills_metadata():

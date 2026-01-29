@@ -7,7 +7,7 @@ from .avatar import tavus_avatar_service
 from .livekit_service import livekit_service
 from .local_skills_registry import get_skill_by_id
 from .openai_tts_service import openai_tts_service
-from .openrouter_llm_service import generate_response
+from .anthropic_skills_service import generate_response
 from ..config.settings import settings
 
 logger = logging.getLogger(__name__)
@@ -166,7 +166,7 @@ class AgentService:
     #         raise
 
     async def say_text(self, room_name: str, text: str, t0_ms: float | None = None) -> dict:
-        """Process text via skill selection (Anthropic) or OpenRouter -> TTS streaming into LiveKit."""
+        """Process text via skill selection and Anthropic LLM -> TTS streaming into LiveKit."""
         try:
             session = self.active_sessions.get(room_name)
             if not session:

@@ -45,6 +45,15 @@ class HealthResponse(BaseModel):
     version: str = "0.1.0"
     services: dict[str, str] = {}
 
+
+class LatencyReportRequest(BaseModel):
+    """Latency report from client."""
+    room_name: Optional[str] = None
+    latency_ms: Optional[float] = None
+    status: Optional[str] = None
+    client_t0_ms: Optional[float] = None
+    client_t1_ms: Optional[float] = None
+
 class SkillMetadata(BaseModel):
     id: str
     title: str

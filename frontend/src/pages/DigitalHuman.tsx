@@ -145,19 +145,17 @@ export function DigitalHuman() {
 
     setMessages((prev) => [...prev, { role: 'user', text: trimmed }]);
     setIsProcessing(true);
+    pendingLatencyRef.current = Date.now();
     try {
       const response = await axios.post(`${API_URL}/api/say`, {
         room_name: roomName,
         text: trimmed,
       });
-      const t0Ms = Number(response.data?.t0_ms);
-      if (Number.isFinite(t0Ms)) {
-        pendingLatencyRef.current = t0Ms;
-      }
       setMessages((prev) => [...prev, { role: 'ai', text: response.data?.response ?? '' }]);
     } catch (error) {
       console.error('Failed to send text:', error);
       addSystemMessage('Failed to send text. Check backend logs.');
+      pendingLatencyRef.current = null;
     } finally {
       setIsProcessing(false);
     }
@@ -361,13 +359,29 @@ export function DigitalHuman() {
     const handlePlaying = () => {
       const t0Ms = pendingLatencyRef.current;
       if (!t0Ms) return;
-      const latencyMs = Date.now() - t0Ms;
       pendingLatencyRef.current = null;
-      setLastLatencyMs(latencyMs);
-      setMessages((prev) => [
-        ...prev,
-        { role: 'system', text: `Latency t2-t0: ${Math.round(latencyMs)} ms` },
-      ]);
+      axios
+        .post(`${API_URL}/api/metrics/latency`, {
+          room_name: roomName,
+          latency_ms: null,
+          status: 'ok',
+          client_t0_ms: t0Ms,
+          client_t1_ms: Date.now(),
+        })
+        .then((res) => {
+          const latencyMs = Number(res.data?.latency_ms);
+          if (Number.isFinite(latencyMs)) {
+            setLastLatencyMs(latencyMs);
+            setMessages((prev) => [
+              ...prev,
+              { role: 'system', text: `Latency input→audio: ${Math.round(latencyMs)} ms` },
+            ]);
+            console.log('[Latency] input→audio', { latencyMs });
+          }
+        })
+        .catch((error) => {
+          console.warn('Failed to report latency:', error);
+        });
     };
 
     audioEl.addEventListener('playing', handlePlaying);
@@ -540,7 +554,7 @@ export function DigitalHuman() {
                     {useAvatar === false ? 'not active' : livekitHasVideo ? 'active' : 'waiting'}
                   </div>
                   <div className="mt-1 text-xs text-gray-500">
-                    Latency (t2-t0): {lastLatencyMs ? `${Math.round(lastLatencyMs)} ms` : '-'}
+                    Latency (input→audio): {lastLatencyMs ? `${Math.round(lastLatencyMs)} ms` : '-'}
                   </div>
                 </div>
               )}

@@ -18,7 +18,13 @@ def _get_llm_client() -> anthropic.Anthropic:
         api_key = settings.anthropic_api_key
         if not api_key:
             raise RuntimeError("ANTHROPIC_API_KEY is not set")
-        _llm_client = anthropic.Anthropic(api_key=api_key)
+        
+        kwargs = {"api_key": api_key}
+        if settings.anthropic_base_url:
+            kwargs["base_url"] = settings.anthropic_base_url
+            logger.info("Using Anthropic base_url: %s", settings.anthropic_base_url)
+        
+        _llm_client = anthropic.Anthropic(**kwargs)
     return _llm_client
 
 
@@ -36,6 +42,29 @@ def _extract_json(text: str) -> dict:
     if start != -1 and end != -1 and end > start:
         text = text[start : end + 1]
     return json.loads(text)
+
+
+def generate_response(system_content: str | None, user_content: str, temperature: float = 0.2) -> str:
+    """
+    Generate a response using Anthropic API.
+    Compatible with the OpenRouter interface for easy replacement.
+    """
+    client = _get_llm_client()
+    
+    messages = [{"role": "user", "content": user_content}]
+    
+    kwargs = {
+        "model": settings.anthropic_model,
+        "max_tokens": 2048,
+        "temperature": temperature,
+        "messages": messages,
+    }
+    
+    if system_content:
+        kwargs["system"] = system_content
+    
+    response = client.messages.create(**kwargs)
+    return _extract_text(response)
 
 
 def select_skill_for_query(query: str) -> tuple[Optional[dict], Optional[str]]:
