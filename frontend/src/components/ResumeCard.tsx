@@ -1,10 +1,7 @@
-import { FileText, Download, Trash2, FileType, Calendar, Sparkles } from 'lucide-react';
+import { FileText, Download, Trash2, FileType, Calendar } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
 import type { Resume } from '../types';
 import { useResumeStore } from '../store/useResumeStore';
-import { useJobStore } from '../store/useJobStore';
 
 interface ResumeCardProps {
   resume: Resume;
@@ -12,10 +9,6 @@ interface ResumeCardProps {
 
 export function ResumeCard({ resume }: ResumeCardProps) {
   const { deleteResume, downloadResume } = useResumeStore();
-  const { matchResumeToJobs } = useJobStore();
-  const navigate = useNavigate();
-  const [isMatching, setIsMatching] = useState(false);
-  
   const handleDownload = async () => {
     try {
       await downloadResume(resume.id, resume.originalName);
@@ -34,32 +27,14 @@ export function ResumeCard({ resume }: ResumeCardProps) {
     }
   };
   
-  const handleMatch = async () => {
-    if (!resume.parsedData) {
-      alert('❌ Resume data is incomplete. Matching is unavailable.');
-      return;
-    }
-    
-    setIsMatching(true);
-    try {
-      const results = await matchResumeToJobs(resume.id);
-      alert(`✅ Matched ${results.length} jobs successfully! Redirecting...`);
-      setTimeout(() => navigate('/jobs'), 1000);
-    } catch (error) {
-      alert('❌ Match failed. Please make sure the backend is running.');
-    } finally {
-      setIsMatching(false);
-    }
-  };
-  
-  // 格式化文件大小
+  // Format file size
   const formatFileSize = (bytes: number): string => {
     if (bytes < 1024) return `${bytes} B`;
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
   
-  // 格式化日期
+  // Format date
   const formatDate = (dateString?: string | null): string => {
     if (!dateString) return '-';
     const date = new Date(dateString);
@@ -72,7 +47,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
     });
   };
   
-  // 文件类型图标颜色
+  // File type icon colors
   const getFileTypeColor = (type: string): string => {
     switch (type) {
       case 'pdf':
@@ -147,28 +122,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
       </div>
       
       {/* 操作按钮 */}
-      <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between space-x-2">
-        {/* 匹配职位按钮 */}
-        <button
-          onClick={handleMatch}
-          disabled={isMatching || resume.status !== 'ready'}
-          className="inline-flex items-center px-4 py-2 text-sm font-semibold text-white bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg hover:from-purple-700 hover:to-blue-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md"
-        >
-          {isMatching ? (
-            <>
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              Matching...
-            </>
-          ) : (
-            <>
-              <Sparkles className="w-4 h-4 mr-1.5" />
-              Match Jobs
-            </>
-          )}
-        </button>
-        
-        {/* 其他按钮 */}
-        <div className="flex items-center space-x-2">
+      <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-end space-x-2">
           <button
             onClick={handleDownload}
             className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
@@ -184,7 +138,6 @@ export function ResumeCard({ resume }: ResumeCardProps) {
             <Trash2 className="w-4 h-4 mr-1.5" />
             Delete
           </button>
-        </div>
       </div>
     </motion.div>
   );

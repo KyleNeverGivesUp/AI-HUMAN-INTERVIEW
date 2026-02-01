@@ -1,3 +1,3 @@
-"""LibaAI Backend - Digital Human Service"""
+"""CareerBoost AI Backend - Interview Service"""
 
 __version__ = "0.1.0"

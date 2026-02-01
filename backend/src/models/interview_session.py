@@ -3,7 +3,7 @@ Interview Session database model
 """
 from sqlalchemy import Column, String, Integer, Float, Text, DateTime, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 import uuid
 
@@ -56,6 +56,13 @@ class InterviewSession(Base):
     
     def to_dict(self):
         """Convert to dictionary"""
+        def _iso(dt):
+            if not dt:
+                return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+
         return {
             'id': self.id,
             'roomName': self.room_name,
@@ -64,8 +71,8 @@ class InterviewSession(Base):
             'jobTitle': self.job_title,
             'jobCompany': self.job_company,
             'resumeId': self.resume_id,
-            'startedAt': self.started_at.isoformat() if self.started_at else None,
-            'endedAt': self.ended_at.isoformat() if self.ended_at else None,
+            'startedAt': _iso(self.started_at),
+            'endedAt': _iso(self.ended_at),
             'durationSeconds': self.duration_seconds,
             'conversationHistory': json.loads(self.conversation_history) if self.conversation_history else [],
             'questionCount': self.question_count,
@@ -79,12 +86,19 @@ class InterviewSession(Base):
             'recommendations': json.loads(self.recommendations) if self.recommendations else [],
             'isEvaluated': self.is_evaluated,
             'evaluationModel': self.evaluation_model,
-            'createdAt': self.created_at.isoformat() if self.created_at else None,
-            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+            'createdAt': _iso(self.created_at),
+            'updatedAt': _iso(self.updated_at),
         }
 
     def to_summary_dict(self):
         """Convert to lightweight summary dictionary for list views"""
+        def _iso(dt):
+            if not dt:
+                return None
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            return dt.isoformat()
+
         return {
             'id': self.id,
             'roomName': self.room_name,
@@ -93,12 +107,12 @@ class InterviewSession(Base):
             'jobTitle': self.job_title,
             'jobCompany': self.job_company,
             'resumeId': self.resume_id,
-            'startedAt': self.started_at.isoformat() if self.started_at else None,
-            'endedAt': self.ended_at.isoformat() if self.ended_at else None,
+            'startedAt': _iso(self.started_at),
+            'endedAt': _iso(self.ended_at),
             'durationSeconds': self.duration_seconds,
             'questionCount': self.question_count,
             'overallScore': self.overall_score,
             'isEvaluated': self.is_evaluated,
-            'createdAt': self.created_at.isoformat() if self.created_at else None,
-            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+            'createdAt': _iso(self.created_at),
+            'updatedAt': _iso(self.updated_at),
         }

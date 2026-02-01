@@ -24,8 +24,8 @@ logger = logging.getLogger(__name__)
 
 # Create FastAPI app
 app = FastAPI(
-    title="LibaAI - Digital Human API",
-    description="Real-time digital human powered by LiveKit",
+    title="CareerBoost AI API",
+    description="Real-time interview platform powered by LiveKit",
     version="0.1.0",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -64,7 +64,7 @@ def ignore_sse_probe():
 @app.on_event("startup")
 async def startup_event():
     """Application startup"""
-    logger.info("Starting LibaAI Digital Human API")
+    logger.info("Starting CareerBoost AI API")
     logger.info(f"Debug mode: {settings.debug}")
     logger.info(f"LiveKit URL: {settings.livekit_url}")
     
@@ -82,7 +82,7 @@ async def startup_event():
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown"""
-    logger.info("Shutting down LibaAI Digital Human API")
+    logger.info("Shutting down CareerBoost AI API")
     rooms = list(agent_service.active_sessions.keys())
     for room_name in rooms:
         try:
@@ -98,7 +98,7 @@ async def shutdown_event():
 async def root():
     """Root endpoint"""
     return {
-        "message": "LibaAI Digital Human API",
+        "message": "CareerBoost AI API",
         "version": "0.1.0",
         "docs": "/docs",
         "health": "/api/health"

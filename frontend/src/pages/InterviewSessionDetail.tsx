@@ -33,6 +33,7 @@ export function InterviewSessionDetail() {
   const [session, setSession] = useState<InterviewSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEvaluating, setIsEvaluating] = useState(false);
+  const [isScoring, setIsScoring] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,18 +42,35 @@ export function InterviewSessionDetail() {
     }
   }, [sessionId]);
 
-  const fetchSession = async () => {
-    setIsLoading(true);
+  useEffect(() => {
+    if (!isScoring || !sessionId) return;
+    const interval = window.setInterval(() => {
+      fetchSession({ silent: true });
+    }, 5000);
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [isScoring, sessionId]);
+
+  const fetchSession = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
       const response = await axios.get(`/api/interviews/${sessionId}`);
       setSession(response.data);
+      if (response.data?.isEvaluated) {
+        setIsScoring(false);
+      }
     } catch (err) {
       console.error('Failed to fetch session:', err);
       setError('Failed to load interview session');
     } finally {
-      setIsLoading(false);
+      if (!options?.silent) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -62,10 +80,11 @@ export function InterviewSessionDetail() {
 
     try {
       await axios.post(`/api/interviews/${sessionId}/evaluate`);
-      await fetchSession(); // Refresh data
+      setIsScoring(true);
     } catch (err) {
       console.error('Failed to evaluate session:', err);
       setError('Failed to evaluate interview');
+      setIsScoring(false);
     } finally {
       setIsEvaluating(false);
     }
@@ -168,25 +187,32 @@ export function InterviewSessionDetail() {
           >
             <TrendingUp className="w-12 h-12 text-blue-600 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              Interview Not Yet Evaluated
+              {isScoring ? 'Scoring in progress' : 'Interview Not Yet Evaluated'}
             </h3>
             <p className="text-gray-600 mb-6">
-              Click below to generate AI-powered feedback and scores
+              {isScoring
+                ? 'Your evaluation is running in the background. Refresh to see results.'
+                : 'Click below to request AI-powered feedback and scores'}
             </p>
             <button
               onClick={evaluateSession}
-              disabled={isEvaluating}
+              disabled={isEvaluating || isScoring}
               className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center space-x-2"
             >
               {isEvaluating ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>Evaluating...</span>
+                  <span>Requesting...</span>
+                </>
+              ) : isScoring ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>Scoring...</span>
                 </>
               ) : (
                 <>
                   <Award className="w-5 h-5" />
-                  <span>Evaluate Interview</span>
+                  <span>Request Evaluation</span>
                 </>
               )}
             </button>

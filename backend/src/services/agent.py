@@ -136,6 +136,9 @@ class AgentService:
                 "client_ws": None,
                 "tts_task": None,
                 "publisher_task": None,
+                "prefetch_task": None,
+                "prefetched_question": None,
+                "prefetch_used": False,
                 "greeted": False,
                 "question_count": 0,
                 "turn_count": 0,
@@ -263,17 +266,28 @@ class AgentService:
                 job_title = session["job_context"]["title"]
                 company = session["job_context"]["company"]
                 
-                # Generate JD-matched first question using skill context
-                if session.get("skill_body"):
-                    # Generate skill-based opening question
+                if self._is_software_role(job_title) and session.get("skill_body"):
+                    greeting = (
+                        f"Hello {session['participant_name']}, welcome to your interview for the "
+                        f"{job_title} position at {company}. What motivated you to apply for this role?"
+                    )
+                    self._maybe_start_prefetch(session, room_name)
+                elif session.get("skill_body"):
                     first_question = await self._generate_jd_match_question(session)
-                    greeting = f"Hello {session['participant_name']}, welcome to your interview for the {job_title} position at {company}. Let's get started. {first_question}"
+                    greeting = (
+                        f"Hello {session['participant_name']}, welcome to your interview for the "
+                        f"{job_title} position at {company}. Let's get started. {first_question}"
+                    )
                 elif session.get("default_question"):
-                    # Fallback to cached default question
-                    greeting = f"Hello {session['participant_name']}, welcome to your interview for the {job_title} position at {company}. Let's get started. {session['default_question']}"
+                    greeting = (
+                        f"Hello {session['participant_name']}, welcome to your interview for the "
+                        f"{job_title} position at {company}. Let's get started. {session['default_question']}"
+                    )
                 else:
-                    # Fallback to simple greeting
-                    greeting = f"Hello {session['participant_name']}, welcome to your interview for the {job_title} position at {company}. Please introduce yourself."
+                    greeting = (
+                        f"Hello {session['participant_name']}, welcome to your interview for the "
+                        f"{job_title} position at {company}. Please introduce yourself."
+                    )
                 
                 session["question_count"] = 1
                 
@@ -307,9 +321,11 @@ class AgentService:
                 }
 
             used_skill = False
-            
-            # If interview context exists, skip skills selection and use job-based context directly
-            if session.get("job_context"):
+            prefetched_response = self._consume_prefetched_question(session)
+            if prefetched_response:
+                response_text = prefetched_response
+                used_skill = False
+            elif session.get("job_context"):
                 response_text = await self._generate_response(
                     session=session,
                     text=text,
@@ -473,7 +489,7 @@ class AgentService:
             if not session:
                 return False
 
-            for task_name in ("tts_task", "publisher_task"):
+            for task_name in ("tts_task", "publisher_task", "prefetch_task"):
                 task = session.get(task_name)
                 if task and not task.done():
                     task.cancel()
@@ -646,6 +662,91 @@ Return ONLY the question, nothing else."""
         except Exception as e:
             logger.error(f"Failed to generate JD-matched question: {e}")
             return session.get("default_question", "Can you tell me about your relevant experience for this role?")
+
+    async def _prefetch_second_question(self, session: dict) -> None:
+        """Prefetch question #2 using skills + JD (+ resume if available)."""
+        job_ctx = session.get("job_context")
+        skill_body = session.get("skill_body")
+        if not (job_ctx and skill_body):
+            return
+
+        resume_ctx = session.get("resume_context")
+        resume_summary = resume_ctx[:800] if resume_ctx else ""
+
+        system_content = f"""You are an experienced technical interviewer following this interview guide:
+
+{skill_body}
+
+JOB DETAILS:
+- Position: {job_ctx['title']} at {job_ctx['company']}
+- Description: {job_ctx['description'][:300]}...
+- Key Qualifications: {', '.join(job_ctx['qualifications'][:5]) if job_ctx['qualifications'] else 'N/A'}"""
+
+        if resume_summary:
+            system_content += f"""
+
+CANDIDATE RESUME (Summary):
+{resume_summary}..."""
+
+        system_content += f"""
+
+INSTRUCTIONS:
+- The first question asked was: "What motivated you to apply for this role?"
+- You are now asking question #2 of 5
+- Base your question on the job requirements (and candidate background if available)
+- Follow the interview focus areas from the guide
+- Ask ONE specific, relevant question (max 25 words)
+- Focus on technical skills, experience, or problem-solving
+- Be conversational and professional
+- DO NOT repeat the first question
+- Respond in English only"""
+
+        user_content = "Generate interview question #2."
+
+        def _call_llm() -> str:
+            return generate_response(system_content, user_content, temperature=0.2)
+
+        try:
+            question = await asyncio.to_thread(_call_llm)
+            session["prefetched_question"] = question.strip()
+            logger.info("Prefetched question #2: %s", question[:80])
+        except Exception as e:
+            logger.warning("Prefetch question #2 failed: %s", e)
+
+    def _maybe_start_prefetch(self, session: dict, room_name: str) -> None:
+        if session.get("prefetch_task") or session.get("prefetch_used"):
+            return
+        job_ctx = session.get("job_context")
+        if not job_ctx:
+            return
+        if not self._is_software_role(job_ctx.get("title", "")):
+            return
+        task = asyncio.create_task(self._prefetch_second_question(session))
+        self._track_task(room_name, task, "prefetch_task")
+
+    def _consume_prefetched_question(self, session: dict) -> str | None:
+        if session.get("prefetch_used"):
+            return None
+        if int(session.get("question_count", 0)) != 1:
+            return None
+
+        task = session.get("prefetch_task")
+        if task and not task.done():
+            task.cancel()
+            session["prefetch_used"] = True
+            return None
+
+        prefetched = session.get("prefetched_question")
+        if prefetched:
+            session["prefetch_used"] = True
+            return prefetched
+
+        session["prefetch_used"] = True
+        return None
+
+    def _is_software_role(self, job_title: str) -> bool:
+        normalized = job_title.lower()
+        return "software" in normalized or "swe" in normalized
 
     async def _generate_response(
         self,

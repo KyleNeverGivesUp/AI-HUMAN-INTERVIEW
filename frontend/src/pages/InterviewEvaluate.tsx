@@ -27,6 +27,8 @@ export function InterviewEvaluate() {
   const [sessions, setSessions] = useState<InterviewSession[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [scoringSessions, setScoringSessions] = useState<Set<string>>(new Set());
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -34,8 +36,35 @@ export function InterviewEvaluate() {
     fetchSessions();
   }, []);
 
-  const fetchSessions = async () => {
-    setIsLoading(true);
+  useEffect(() => {
+    if (scoringSessions.size === 0) return;
+
+    const interval = window.setInterval(() => {
+      fetchSessions({ silent: true });
+    }, 5000);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [scoringSessions.size]);
+
+  useEffect(() => {
+    if (scoringSessions.size === 0) return;
+    const scoredIds = new Set(
+      sessions.filter((session) => session.isEvaluated).map((session) => session.id)
+    );
+    if (scoredIds.size === 0) return;
+    setScoringSessions((prev) => {
+      const next = new Set(prev);
+      scoredIds.forEach((id) => next.delete(id));
+      return next;
+    });
+  }, [sessions]);
+
+  const fetchSessions = async (options?: { silent?: boolean }) => {
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
     setError(null);
     
     try {
@@ -45,7 +74,25 @@ export function InterviewEvaluate() {
       console.error('Failed to fetch interview sessions:', err);
       setError('Failed to load interview sessions');
     } finally {
-      setIsLoading(false);
+      if (!options?.silent) {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const requestEvaluation = async (sessionId: string) => {
+    setActionError(null);
+    setScoringSessions((prev) => new Set(prev).add(sessionId));
+    try {
+      await axios.post(`/api/interviews/${sessionId}/evaluate`);
+    } catch (err) {
+      console.error('Failed to request evaluation:', err);
+      setActionError('Failed to request evaluation');
+      setScoringSessions((prev) => {
+        const next = new Set(prev);
+        next.delete(sessionId);
+        return next;
+      });
     }
   };
 
@@ -127,6 +174,11 @@ export function InterviewEvaluate() {
                 {error}
               </div>
             )}
+            {actionError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-600 mb-4">
+                {actionError}
+              </div>
+            )}
 
             {/* Empty State */}
             {!isLoading && !error && sessions.length === 0 && (
@@ -203,11 +255,53 @@ export function InterviewEvaluate() {
                             >
                               {session.overallScore}
                             </span>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await axios.delete(`/api/interviews/${session.id}`);
+                                  setSessions((prev) => prev.filter((item) => item.id !== session.id));
+                                } catch (err) {
+                                  console.error('Failed to delete interview session:', err);
+                                  setActionError('Failed to delete interview session');
+                                }
+                              }}
+                              className="inline-flex items-center px-3 py-1 rounded-full bg-red-50 text-red-700 text-sm hover:bg-red-100 transition-colors"
+                            >
+                              Delete Evaluation
+                            </button>
                           </div>
-                        ) : (
+                        ) : scoringSessions.has(session.id) ? (
                           <div className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-sm">
                             <Loader2 className="w-4 h-4 mr-1 animate-spin" />
                             Scoring...
+                          </div>
+                        ) : (
+                          <div className="flex items-center space-x-2">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                requestEvaluation(session.id);
+                              }}
+                              className="inline-flex items-center px-3 py-1 rounded-full bg-purple-600 text-white text-sm hover:bg-purple-700 transition-colors"
+                            >
+                              Request Evaluation
+                            </button>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                try {
+                                  await axios.delete(`/api/interviews/${session.id}`);
+                                  setSessions((prev) => prev.filter((item) => item.id !== session.id));
+                                } catch (err) {
+                                  console.error('Failed to delete interview session:', err);
+                                  setActionError('Failed to delete interview session');
+                                }
+                              }}
+                              className="inline-flex items-center px-3 py-1 rounded-full bg-red-50 text-red-700 text-sm hover:bg-red-100 transition-colors"
+                            >
+                              Delete Evaluation
+                            </button>
                           </div>
                         )}
                       </div>
@@ -228,10 +322,16 @@ export function InterviewEvaluate() {
                               {session.overallScore}
                             </span>
                           </div>
-                        ) : (
+                        ) : scoringSessions.has(session.id) ? (
                           <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
                             <span className="text-[10px] font-semibold text-gray-500 text-center leading-tight">
                               Scoring...
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                            <span className="text-[10px] font-semibold text-gray-400 text-center leading-tight">
+                              --
                             </span>
                           </div>
                         )}

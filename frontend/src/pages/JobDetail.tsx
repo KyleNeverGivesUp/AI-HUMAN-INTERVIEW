@@ -9,8 +9,7 @@ import {
   Users,
   ArrowLeft,
   Heart,
-  Share2,
-  Building2
+  Share2
 } from 'lucide-react';
 import { useJobStore } from '@/store/useJobStore';
 import { useResumeStore } from '@/store/useResumeStore';
@@ -74,8 +73,12 @@ export function JobDetail() {
             >
               <div className="flex items-start justify-between mb-6">
                 <div className="flex items-start space-x-4 flex-1">
-                  <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                    <Building2 className="w-8 h-8 text-gray-400" />
+                  <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-200">
+                    <img
+                      src="/tmobile-logo.png"
+                      alt={selectedJob.company}
+                      className="w-full h-full object-contain p-2"
+                    />
                   </div>
                   <div className="flex-1">
                     <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -207,8 +210,12 @@ export function JobDetail() {
             >
               <h2 className="text-xl font-bold text-gray-900 mb-3">Company</h2>
               <div className="flex items-start space-x-4">
-                <div className="w-16 h-16 bg-gray-200 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Building2 className="w-8 h-8 text-gray-400" />
+                <div className="w-16 h-16 bg-white rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden border border-gray-200">
+                  <img
+                    src="/tmobile-logo.png"
+                    alt={selectedJob.company}
+                    className="w-full h-full object-contain p-2"
+                  />
                 </div>
                 <div className="flex-1">
                   <h3 className="text-lg font-bold text-gray-900 mb-1">

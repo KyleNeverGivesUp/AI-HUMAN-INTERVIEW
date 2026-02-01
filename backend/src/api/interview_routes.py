@@ -7,8 +7,9 @@ from typing import List, Optional
 from datetime import datetime
 import json
 import logging
+import asyncio
 
-from ..database import get_db
+from ..database import get_db, SessionLocal
 from ..models.interview_session import InterviewSession
 from ..models.job import Job
 from ..services.interview_evaluator import interview_evaluator
@@ -16,6 +17,61 @@ from ..services.interview_evaluator import interview_evaluator
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/interviews", tags=["interviews"])
+
+
+async def _evaluate_session_async(session_id: str) -> None:
+    """Run interview evaluation in the background without blocking requests."""
+    db = SessionLocal()
+    try:
+        session = db.query(InterviewSession).filter(InterviewSession.id == session_id).first()
+        if not session:
+            logger.warning("Background evaluation skipped: session not found %s", session_id)
+            return
+
+        if session.is_evaluated:
+            logger.info("Background evaluation skipped: already evaluated %s", session_id)
+            return
+
+        if not session.conversation_history:
+            logger.info("Background evaluation skipped: no conversation history %s", session_id)
+            return
+
+        conversation = json.loads(session.conversation_history)
+
+        job_description = None
+        if session.job_id:
+            job = db.query(Job).filter(Job.id == session.job_id).first()
+            if job:
+                job_dict = job.to_dict()
+                job_description = job_dict.get('description', '')
+
+        logger.info("Background evaluating interview session %s", session_id)
+        evaluation = await interview_evaluator.evaluate_interview(
+            conversation_history=conversation,
+            job_title=session.job_title,
+            job_company=session.job_company,
+            job_description=job_description
+        )
+
+        session.overall_score = evaluation.get('overallScore', 0)
+        session.technical_score = evaluation.get('technicalScore', 0)
+        session.communication_score = evaluation.get('communicationScore', 0)
+        session.problem_solving_score = evaluation.get('problemSolvingScore', 0)
+        session.strengths = json.dumps(evaluation.get('strengths', []))
+        session.areas_for_improvement = json.dumps(evaluation.get('areasForImprovement', []))
+        session.detailed_feedback = evaluation.get('detailedFeedback', '')
+        session.recommendations = json.dumps(evaluation.get('recommendations', []))
+        session.is_evaluated = True
+
+        db.commit()
+        logger.info("Background evaluation completed: %s score=%s", session_id, session.overall_score)
+    except Exception as e:
+        logger.error("Background evaluation failed: %s error=%s", session_id, e)
+        db.rollback()
+    finally:
+        db.close()
+
+
 
 
 @router.get("/")
@@ -100,7 +156,7 @@ async def save_interview_session(
     db.refresh(session)
     
     logger.info(f"Saved interview session {session_id} with {session.question_count} questions")
-    
+
     return {
         "success": True,
         "sessionId": session_id,
@@ -130,46 +186,17 @@ async def evaluate_interview_session(
             detail="No conversation history to evaluate"
         )
     
-    # Parse conversation
-    conversation = json.loads(session.conversation_history)
-    
-    # Get job details for context
-    job_description = None
-    if session.job_id:
-        job = db.query(Job).filter(Job.id == session.job_id).first()
-        if job:
-            job_dict = job.to_dict()
-            job_description = job_dict.get('description', '')
-    
-    # Evaluate using LLM
-    logger.info(f"Evaluating interview session {session_id}")
-    evaluation = await interview_evaluator.evaluate_interview(
-        conversation_history=conversation,
-        job_title=session.job_title,
-        job_company=session.job_company,
-        job_description=job_description
-    )
-    
-    # Save evaluation to database
-    session.overall_score = evaluation.get('overallScore', 0)
-    session.technical_score = evaluation.get('technicalScore', 0)
-    session.communication_score = evaluation.get('communicationScore', 0)
-    session.problem_solving_score = evaluation.get('problemSolvingScore', 0)
-    session.strengths = json.dumps(evaluation.get('strengths', []))
-    session.areas_for_improvement = json.dumps(evaluation.get('areasForImprovement', []))
-    session.detailed_feedback = evaluation.get('detailedFeedback', '')
-    session.recommendations = json.dumps(evaluation.get('recommendations', []))
-    session.is_evaluated = True
-    
-    db.commit()
-    db.refresh(session)
-    
-    logger.info(f"Interview session {session_id} evaluated: score={session.overall_score}")
+    if session.is_evaluated:
+        return {
+            "sessionId": session_id,
+            "message": "Interview already evaluated"
+        }
+
+    asyncio.create_task(_evaluate_session_async(session_id))
     
     return {
         "sessionId": session_id,
-        "evaluation": evaluation,
-        "message": "Interview evaluated successfully"
+        "message": "Evaluation requested"
     }
 
 

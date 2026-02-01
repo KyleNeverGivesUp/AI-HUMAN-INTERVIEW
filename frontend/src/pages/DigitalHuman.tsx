@@ -86,10 +86,9 @@ export function DigitalHuman() {
           participant_name: 'User',
         },
       });
-      await axios.post(`${API_URL}/api/interviews/${sessionId}/evaluate`);
-      console.log('[Interview] session saved and evaluated', sessionId);
+      console.log('[Interview] session saved', sessionId);
     } catch (error) {
-      console.error('Failed to save/evaluate interview session:', error);
+      console.error('Failed to save interview session:', error);
     }
   };
 
@@ -502,7 +501,7 @@ export function DigitalHuman() {
           className="text-center mb-8 pt-6"
         >
           <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent mb-2">
-            AI Interview Studio
+            CareerBoost AI
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
             Real-time mock interview with live AI avatar
@@ -555,7 +554,7 @@ export function DigitalHuman() {
                       <div className="w-32 h-32 mx-auto mb-6 rounded-full bg-gradient-to-br from-purple-600 to-blue-600 flex items-center justify-center">
                         <Video className="w-16 h-16 text-white" />
                       </div>
-                      <h3 className="text-2xl font-bold text-white mb-3">AI Interview</h3>
+                      <h3 className="text-2xl font-bold text-white mb-3">CareerBoost AI Interview</h3>
                       <p className="text-white/80 mb-6 max-w-md mx-auto">
                         Start a session to join the interview session and talk with AI avatar.
                       </p>

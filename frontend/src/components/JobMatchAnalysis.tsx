@@ -155,7 +155,7 @@ export function JobMatchAnalysis({ job, resumeId }: JobMatchAnalysisProps) {
           <p className="text-sm text-gray-600 mb-4">
             Using <strong>Claude Sonnet 4</strong>
             <br />
-            <span className="text-xs text-gray-500">First analysis: 3-5s • Cached: ⚡ &lt;50ms</span>
+            <span className="text-xs text-gray-500">First analysis: &lt; 1 min • Cached: ⚡ &lt;50ms</span>
           </p>
 
           <button

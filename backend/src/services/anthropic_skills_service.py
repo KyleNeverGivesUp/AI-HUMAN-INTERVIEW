@@ -30,8 +30,14 @@ def _get_llm_client() -> anthropic.Anthropic:
 
 def _extract_text(response) -> str:
     content = getattr(response, "content", None)
-    if content and len(content) > 0:
-        return content[0].text
+    if content:
+        for block in content:
+            if isinstance(block, dict):
+                if block.get("type") == "text" and block.get("text"):
+                    return block["text"]
+            else:
+                if getattr(block, "type", None) == "text" and getattr(block, "text", None):
+                    return block.text
     raise RuntimeError("LLM returned empty content")
 
 

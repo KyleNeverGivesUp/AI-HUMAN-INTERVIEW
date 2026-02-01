@@ -36,10 +36,20 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
       const response = await axios.get<ResumeListResponse>(`${API_URL}/api/resumes`);
       set({ resumes: response.data.items, isLoading: false });
     } catch (error) {
+      const err = error as { code?: string; name?: string; message?: string };
+      const isAbort =
+        err?.code === 'ECONNABORTED' ||
+        err?.code === 'ERR_CANCELED' ||
+        err?.name === 'CanceledError' ||
+        err?.message === 'Request aborted';
+      if (isAbort) {
+        set({ isLoading: false });
+        return;
+      }
       console.error('Failed to fetch resumes:', error);
-      set({ 
-        error: 'Failed to load resumes', 
-        isLoading: false 
+      set({
+        error: 'Failed to load resumes',
+        isLoading: false,
       });
     }
   },

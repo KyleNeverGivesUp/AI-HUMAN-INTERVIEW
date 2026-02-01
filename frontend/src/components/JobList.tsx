@@ -35,8 +35,7 @@ export function JobList() {
       <div className="mb-6">
         <div className="flex flex-col gap-3 mb-4 sm:flex-row sm:items-center sm:justify-between">
           <h1 className="text-2xl font-bold text-gray-900">
-            1 hours 🔥{' '}
-            <span className="text-primary">JobSeeker</span>
+            1 hours 🔥 <span className="text-primary">CareerBoost AI</span>
           </h1>
           <button className="btn-primary w-full sm:w-auto">
             🔄 Change Job Reference

@@ -1,4 +1,4 @@
-# AI Avatar Interview Studio
+# CareerBoost AI
 
 Real-time multi-modal AI interview application. Text in, AI avatar speaks in sync with audio/video.
 

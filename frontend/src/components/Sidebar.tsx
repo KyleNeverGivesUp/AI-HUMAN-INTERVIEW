@@ -21,7 +21,7 @@ interface SidebarProps {
 const menuItems = [
   { icon: Briefcase, label: 'Jobs', path: '/' },
   { icon: Video, label: 'AI Mock Interview', path: '/digital-human' },
-  { icon: Award, label: 'Interview Evaluate', path: '/interview-evaluate' },
+  { icon: Award, label: 'Interview Evaluations', path: '/interview-evaluate' },
   { icon: FileText, label: 'Resume', path: '/resume' },
   { icon: User, label: 'Profile', path: '/profile' },
   { icon: Settings, label: 'Setting', path: '/settings' },
@@ -59,10 +59,10 @@ export function Sidebar({ isOpen = true, onClose }: SidebarProps) {
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div className="flex items-center space-x-2">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xl">JN</span>
+              <span className="text-white font-bold text-xl">CB</span>
             </div>
             <span className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-              JobSeeker
+              CareerBoost AI
             </span>
           </div>
           {onClose && (
