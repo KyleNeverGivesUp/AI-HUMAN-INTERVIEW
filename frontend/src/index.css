@@ -16,6 +16,7 @@
 }
 
 @layer components {
+
   .btn-primary {
     @apply bg-primary text-white px-4 py-2 rounded-lg font-medium 
            hover:bg-primary-dark transition-colors duration-200
@@ -42,7 +43,7 @@
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 12px;
   height: 8px;
 }
 

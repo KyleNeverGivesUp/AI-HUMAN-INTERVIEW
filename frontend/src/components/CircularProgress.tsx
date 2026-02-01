@@ -10,7 +10,8 @@ export function CircularProgress({
   percentage, 
   size = 80, 
   strokeWidth = 8 
-}: CircularProgressProps) {
+}: CircularProgressProps)
+ {
   const radius = (size - strokeWidth) / 2;
   const circumference = radius * 2 * Math.PI;
   const offset = circumference - (percentage / 100) * circumference;
