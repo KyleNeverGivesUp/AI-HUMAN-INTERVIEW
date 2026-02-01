@@ -13,7 +13,7 @@ export function ResumeUpload() {
     const file = files[0];
     handleFile(file);
     
-    // 清空input，允许重复上传同一文件
+    // Clear input to allow re-uploading the same file
     e.target.value = '';
   }, []);
   
@@ -33,7 +33,7 @@ export function ResumeUpload() {
   }, []);
   
   const handleFile = (file: File) => {
-    // 验证文件类型
+    // Validate file type
     const allowedTypes = [
       'application/pdf',
       'application/msword',
@@ -41,27 +41,27 @@ export function ResumeUpload() {
     ];
     
     if (!allowedTypes.includes(file.type)) {
-      alert('只支持 PDF 和 Word 文件 (.pdf, .doc, .docx)');
+      alert('Only PDF and Word files are supported (.pdf, .doc, .docx).');
       return;
     }
     
-    // 验证文件大小 (5MB)
+    // Validate file size (5MB)
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
-      alert('文件大小不能超过 5MB');
+      alert('File size must be 5MB or less.');
       return;
     }
     
-    // 上传文件
+    // Upload file
     uploadResume(file);
   };
   
-  // 将 Map 转换为数组用于渲染
+  // Convert Map to array for rendering
   const progressArray = Array.from(uploadProgress.values());
   
   return (
     <div className="space-y-4">
-      {/* 上传区域 */}
+      {/* Upload Area */}
       <motion.div
         initial={{ opacity: 0, y: -20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -85,21 +85,19 @@ export function ResumeUpload() {
             <Upload className="w-8 h-8 text-primary" />
           </div>
           
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
-            上传简历
-          </h3>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Upload Resume</h3>
           
           <p className="text-sm text-gray-600 mb-4">
-            点击选择文件或拖拽文件到这里
+            Click to choose a file or drag it here
           </p>
           
           <p className="text-xs text-gray-500">
-            支持 PDF、Word 格式，最大 5MB
+            Supports PDF and Word formats, max 5MB
           </p>
         </label>
       </motion.div>
       
-      {/* 上传进度列表 */}
+      {/* Upload Progress */}
       {progressArray.length > 0 && (
         <div className="space-y-2">
           {progressArray.map((progress) => (
@@ -127,20 +125,18 @@ export function ResumeUpload() {
                         />
                       </div>
                       <p className="text-xs text-gray-500 mt-1">
-                        上传中... {progress.progress}%
+                        Uploading... {progress.progress}%
                       </p>
                     </div>
                   )}
                   
                   {progress.status === 'done' && (
-                    <p className="text-xs text-green-600 mt-1">
-                      ✓ 上传成功
-                    </p>
+                    <p className="text-xs text-green-600 mt-1">✓ Upload complete</p>
                   )}
                   
                   {progress.status === 'error' && (
                     <p className="text-xs text-red-600 mt-1">
-                      ✗ {progress.error || '上传失败'}
+                      ✗ {progress.error || 'Upload failed'}
                     </p>
                   )}
                 </div>

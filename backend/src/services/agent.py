@@ -58,8 +58,9 @@ class AgentService:
             default_question = None
             skill_id = None
             skill_body = None
+            role_label = None
             
-            if job_id and resume_id:
+            if job_id or resume_id:
                 # Import here to avoid circular dependency
                 from ..database import get_db
                 from ..models.job import Job
@@ -68,51 +69,64 @@ class AgentService:
                 db = next(get_db())
                 
                 # Get job
-                job = db.query(Job).filter(Job.id == job_id).first()
-                if job:
-                    job_dict = job.to_dict()
-                    job_context = {
-                        "title": job_dict['title'],
-                        "company": job_dict['company'],
-                        "description": job_dict['description'],
-                        "qualifications": job_dict['qualifications'],
-                        "responsibilities": job_dict['responsibilities']
-                    }
-                    
-                    # Auto-match skill based on job title
-                    skill_id, role_label = self._match_role_to_skill(job_dict['title'])
-                    if skill_id:
-                        skill = get_skill_by_id(skill_id)
-                        if skill:
-                            skill_body = skill['body']
-                            logger.info(f"Auto-matched skill: {skill_id} ({role_label}) for job: {job_dict['title']}")
+                if job_id:
+                    job = db.query(Job).filter(Job.id == job_id).first()
+                    if job:
+                        job_dict = job.to_dict()
+                        job_context = {
+                            "title": job_dict['title'],
+                            "company": job_dict['company'],
+                            "description": job_dict['description'],
+                            "qualifications": job_dict['qualifications'],
+                            "responsibilities": job_dict['responsibilities']
+                        }
+                        
+                        # Auto-match skill based on job title
+                        skill_id, role_label = self._match_role_to_skill(job_dict['title'])
+                        if skill_id:
+                            skill = get_skill_by_id(skill_id)
+                            if skill:
+                                skill_body = skill['body']
+                                logger.info(
+                                    "Auto-matched skill: %s (%s) for job: %s",
+                                    skill_id,
+                                    role_label,
+                                    job_dict['title'],
+                                )
+                            else:
+                                logger.warning("Skill %s not found in registry", skill_id)
                         else:
-                            logger.warning(f"Skill {skill_id} not found in registry")
-                    else:
-                        logger.warning(f"Could not auto-match skill for job title: {job_dict['title']}")
-                    
-                    default_question = job.default_question
-                    
-                    # Generate default question if not exists
-                    if not default_question:
-                        from ..services.interview_question_generator import question_generator
-                        default_question = await question_generator.generate_default_question(
-                            job_title=job_dict['title'],
-                            job_company=job_dict['company'],
-                            job_description=job_dict['description'],
-                            job_qualifications=job_dict['qualifications'],
-                            job_responsibilities=job_dict['responsibilities']
+                            logger.warning(
+                                "Could not auto-match skill for job title: %s", job_dict['title']
+                            )
+                        
+                        default_question = job.default_question
+                        
+                        # Generate default question if not exists
+                        if not default_question:
+                            from ..services.interview_question_generator import question_generator
+                            default_question = await question_generator.generate_default_question(
+                                job_title=job_dict['title'],
+                                job_company=job_dict['company'],
+                                job_description=job_dict['description'],
+                                job_qualifications=job_dict['qualifications'],
+                                job_responsibilities=job_dict['responsibilities']
+                            )
+                            job.default_question = default_question
+                            db.commit()
+                        
+                        logger.info(
+                            "Loaded job context for interview: %s at %s",
+                            job_dict['title'],
+                            job_dict['company'],
                         )
-                        job.default_question = default_question
-                        db.commit()
-                    
-                    logger.info(f"Loaded job context for interview: {job_dict['title']} at {job_dict['company']}")
                 
                 # Get resume
-                resume = db.query(Resume).filter(Resume.id == resume_id).first()
-                if resume and resume.parsed_data:
-                    resume_context = resume.parsed_data
-                    logger.info(f"Loaded resume context for interview: {len(resume_context)} chars")
+                if resume_id:
+                    resume = db.query(Resume).filter(Resume.id == resume_id).first()
+                    if resume and resume.parsed_data:
+                        resume_context = resume.parsed_data
+                        logger.info("Loaded resume context for interview: %s chars", len(resume_context))
             
             session_id = room_name
             self.active_sessions[session_id] = {
@@ -126,7 +140,7 @@ class AgentService:
                 "question_count": 0,
                 "turn_count": 0,
                 "skill_id": skill_id,  # Auto-matched skill
-                "role_label": None,
+                "role_label": role_label,
                 "role_prompted": False,
                 "job_context": job_context,  # JD context for interview
                 "resume_context": resume_context,  # Resume context for interview
@@ -250,8 +264,8 @@ class AgentService:
                 company = session["job_context"]["company"]
                 
                 # Generate JD-matched first question using skill context
-                if session.get("skill_body") and session.get("resume_context"):
-                    # Generate skill-based JD match question
+                if session.get("skill_body"):
+                    # Generate skill-based opening question
                     first_question = await self._generate_jd_match_question(session)
                     greeting = f"Hello {session['participant_name']}, welcome to your interview for the {job_title} position at {company}. Let's get started. {first_question}"
                 elif session.get("default_question"):
@@ -294,8 +308,8 @@ class AgentService:
 
             used_skill = False
             
-            # If interview context exists, skip skills selection and use JD+Resume directly
-            if session.get("job_context") and session.get("resume_context"):
+            # If interview context exists, skip skills selection and use job-based context directly
+            if session.get("job_context"):
                 response_text = await self._generate_response(
                     session=session,
                     text=text,
@@ -580,7 +594,7 @@ class AgentService:
         resume_ctx = session.get("resume_context")
         skill_body = session.get("skill_body")
         
-        if not (job_ctx and resume_ctx and skill_body):
+        if not (job_ctx and skill_body):
             return session.get("default_question", "Please introduce yourself and your background.")
         
         # Extract key requirements from JD
@@ -589,9 +603,9 @@ class AgentService:
         jd_qualifications = ', '.join(job_ctx.get('qualifications', [])[:3])
         
         # Extract key points from resume (first 600 chars)
-        resume_summary = resume_ctx[:600]
+        resume_summary = resume_ctx[:600] if resume_ctx else ""
         
-        # System prompt to generate JD-matched question based on skill template
+        # System prompt to generate opening question based on skill template
         system_content = f"""You are an experienced interviewer following this interview guide:
 
 {skill_body}
@@ -600,16 +614,23 @@ JOB DETAILS:
 - Position: {jd_summary}
 - Description: {jd_description}...
 - Key Requirements: {jd_qualifications}
+"""
+
+        if resume_summary:
+            system_content += f"""
 
 CANDIDATE RESUME (Summary):
-{resume_summary}...
+{resume_summary}..."""
+
+        system_content += f"""
 
 TASK:
-Based on the "JD Match Question" template in the interview guide above, generate ONE specific opening question (max 30 words) that:
-1. Connects a specific skill/experience from the candidate's resume to a specific requirement from the job description
-2. Follows the style and focus areas defined in the interview guide
-3. Is conversational and engaging
-4. Shows you've read their resume carefully
+Generate ONE specific opening question (max 30 words) that:
+1. Follows the style and focus areas defined in the interview guide
+2. Is conversational and engaging
+3. Is grounded in the job requirements
+
+If a resume summary is provided, connect a specific skill/experience from the resume to a job requirement.
 
 Return ONLY the question, nothing else."""
 
@@ -641,7 +662,7 @@ Return ONLY the question, nothing else."""
         max_questions = 5
         
         # Check if we have interview context
-        has_interview_context = session.get("job_context") and session.get("resume_context")
+        has_interview_context = session.get("job_context")
 
         if not greeted:
             if has_interview_context:
@@ -661,9 +682,9 @@ Return ONLY the question, nothing else."""
             next_q_num = question_count + 1
             
             if has_interview_context:
-                # Generate question based on Skill + JD + Resume + previous answers
+                # Generate question based on Skill + JD (+ Resume if available) + previous answers
                 job_ctx = session["job_context"]
-                resume_ctx = session["resume_context"]
+                resume_ctx = session.get("resume_context")
                 skill_body = session.get("skill_body", "")
                 
                 # Build context-aware system prompt with skill guide
@@ -683,14 +704,19 @@ Follow the interview style, focus areas, and question types defined in the guide
 JOB DETAILS:
 - Position: {job_ctx['title']} at {job_ctx['company']}
 - Description: {job_ctx['description'][:300]}...
-- Key Qualifications: {', '.join(job_ctx['qualifications'][:5]) if job_ctx['qualifications'] else 'N/A'}
+- Key Qualifications: {', '.join(job_ctx['qualifications'][:5]) if job_ctx['qualifications'] else 'N/A'}"""
+
+                if resume_ctx:
+                    system_content += f"""
 
 CANDIDATE RESUME (Summary):
-{resume_ctx[:800]}...
+{resume_ctx[:800]}..."""
+
+                system_content += f"""
 
 INSTRUCTIONS:
 - You are asking question #{next_q_num} of {max_questions}
-- Base your question on the job requirements and candidate's background
+- Base your question on the job requirements (and candidate background if available)
 - Follow the interview focus areas from the guide
 - Ask ONE specific, relevant question (max 25 words)
 - Focus on technical skills, experience, or problem-solving

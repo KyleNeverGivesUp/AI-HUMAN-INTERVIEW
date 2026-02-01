@@ -5,14 +5,14 @@ import type { Resume, ResumeListResponse, UploadProgress } from '../types';
 const API_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8000';
 
 interface ResumeStore {
-  // 状态
+  // State
   resumes: Resume[];
   uploadProgress: Map<string, UploadProgress>;
   selectedResume: Resume | null;
   isLoading: boolean;
   error: string | null;
   
-  // 操作
+  // Actions
   fetchResumes: () => Promise<void>;
   uploadResume: (file: File) => Promise<void>;
   deleteResume: (id: string) => Promise<void>;
@@ -22,14 +22,14 @@ interface ResumeStore {
 }
 
 export const useResumeStore = create<ResumeStore>((set, get) => ({
-  // 初始状态
+  // Initial state
   resumes: [],
   uploadProgress: new Map(),
   selectedResume: null,
   isLoading: false,
   error: null,
   
-  // 获取简历列表
+  // Fetch resume list
   fetchResumes: async () => {
     set({ isLoading: true, error: null });
     try {
@@ -38,17 +38,17 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
     } catch (error) {
       console.error('Failed to fetch resumes:', error);
       set({ 
-        error: '获取简历列表失败', 
+        error: 'Failed to load resumes', 
         isLoading: false 
       });
     }
   },
   
-  // 上传简历
+  // Upload resume
   uploadResume: async (file: File) => {
     const fileName = file.name;
     
-    // 设置初始上传进度
+    // Set initial upload progress
     const newProgress = new Map(get().uploadProgress);
     newProgress.set(fileName, {
       fileName,
@@ -84,7 +84,7 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
         }
       );
       
-      // 上传完成
+      // Upload complete
       const finalProgress = new Map(get().uploadProgress);
       finalProgress.set(fileName, {
         fileName,
@@ -93,10 +93,10 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
       });
       set({ uploadProgress: finalProgress });
       
-      // 刷新列表
+      // Refresh list
       await get().fetchResumes();
       
-      // 2秒后清除进度
+      // Clear progress after 2 seconds
       setTimeout(() => {
         const clearedProgress = new Map(get().uploadProgress);
         clearedProgress.delete(fileName);
@@ -111,16 +111,16 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
         fileName,
         progress: 0,
         status: 'error',
-        error: error.response?.data?.detail || '上传失败'
+        error: error.response?.data?.detail || 'Upload failed'
       });
       set({ 
         uploadProgress: errorProgress,
-        error: error.response?.data?.detail || '上传失败'
+        error: error.response?.data?.detail || 'Upload failed'
       });
     }
   },
   
-  // 删除简历
+  // Delete resume
   deleteResume: async (id: string) => {
     set({ error: null });
     try {
@@ -133,12 +133,12 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
       });
     } catch (error: any) {
       console.error('Delete failed:', error);
-      set({ error: error.response?.data?.detail || '删除失败' });
+      set({ error: error.response?.data?.detail || 'Delete failed' });
       throw error;
     }
   },
   
-  // 下载简历
+  // Download resume
   downloadResume: async (id: string, originalName: string) => {
     set({ error: null });
     try {
@@ -158,17 +158,17 @@ export const useResumeStore = create<ResumeStore>((set, get) => ({
       window.URL.revokeObjectURL(url);
     } catch (error: any) {
       console.error('Download failed:', error);
-      set({ error: error.response?.data?.detail || '下载失败' });
+      set({ error: error.response?.data?.detail || 'Download failed' });
       throw error;
     }
   },
   
-  // 设置选中的简历
+  // Set selected resume
   setSelectedResume: (resume: Resume | null) => {
     set({ selectedResume: resume });
   },
   
-  // 清除错误
+  // Clear error
   clearError: () => {
     set({ error: null });
   },

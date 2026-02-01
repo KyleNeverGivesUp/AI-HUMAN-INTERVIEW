@@ -206,15 +206,15 @@ export function InterviewEvaluate() {
                           </div>
                         ) : (
                           <div className="inline-flex items-center px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-sm">
-                            <TrendingUp className="w-4 h-4 mr-1" />
-                            Not evaluated yet
+                            <Loader2 className="w-4 h-4 mr-1 animate-spin" />
+                            Scoring...
                           </div>
                         )}
                       </div>
 
                       {/* Score Circle & Arrow */}
                       <div className="flex items-center space-x-4 ml-4">
-                        {session.isEvaluated && (
+                        {session.isEvaluated ? (
                           <div
                             className={`w-16 h-16 rounded-full ${getScoreBgColor(
                               session.overallScore
@@ -226,6 +226,12 @@ export function InterviewEvaluate() {
                               )}`}
                             >
                               {session.overallScore}
+                            </span>
+                          </div>
+                        ) : (
+                          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center">
+                            <span className="text-[10px] font-semibold text-gray-500 text-center leading-tight">
+                              Scoring...
                             </span>
                           </div>
                         )}

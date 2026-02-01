@@ -32,7 +32,7 @@ async def get_interview_sessions(
     
     return {
         "total": total,
-        "sessions": [session.to_dict() for session in sessions]
+        "sessions": [session.to_summary_dict() for session in sessions]
     }
 
 

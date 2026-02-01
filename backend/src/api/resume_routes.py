@@ -41,14 +41,14 @@ async def upload_resume(
     Upload a resume file (PDF or Word)
     """
     try:
-        # 1. 验证文件类型
+        # 1. Validate file type
         if file.content_type not in ALLOWED_TYPES:
             raise HTTPException(
                 status_code=400,
-                detail="只支持 PDF 和 Word 文件 (.pdf, .doc, .docx)"
+                detail="Only PDF and Word files are supported (.pdf, .doc, .docx)"
             )
         
-        # 2. 验证文件大小
+        # 2. Validate file size
         file.file.seek(0, 2)  # 移动到文件末尾
         file_size = file.file.tell()  # 获取文件大小
         file.file.seek(0)  # 回到开头
@@ -56,7 +56,7 @@ async def upload_resume(
         if file_size > MAX_FILE_SIZE:
             raise HTTPException(
                 status_code=400,
-                detail=f"文件大小不能超过 {MAX_FILE_SIZE / (1024 * 1024)}MB"
+                detail=f"File size must be <= {MAX_FILE_SIZE / (1024 * 1024)}MB"
             )
         
         # 3. 生成唯一文件名
@@ -65,16 +65,16 @@ async def upload_resume(
         file_name = f"{file_id}{file_ext}"
         file_path = UPLOAD_DIR / file_name
         
-        # 4. 保存文件到磁盘
+        # 4. Save file to disk
         try:
             with open(file_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
             logger.info(f"File saved: {file_path}")
         except Exception as e:
             logger.error(f"Failed to save file: {e}")
-            raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to save file: {str(e)}")
         
-        # 5. 解析文件内容
+        # 5. Parse file content
         parsed_text = ""
         try:
             if file_ext == ".pdf":
@@ -86,7 +86,7 @@ async def upload_resume(
             logger.warning(f"Failed to parse file content: {e}")
             # Continue without parsed_data - user can still upload
         
-        # 6. 保存元数据到数据库
+        # 6. Save metadata to database
         resume = Resume(
             id=file_id,
             file_name=file_name,
@@ -104,14 +104,14 @@ async def upload_resume(
         
         logger.info(f"Resume uploaded successfully: {file_id}")
         
-        # 6. 返回结果
+        # 6. Return result
         return ResumeResponse(**resume.to_dict())
         
     except HTTPException:
         raise
     except Exception as e:
         logger.error(f"Upload failed: {e}")
-        raise HTTPException(status_code=500, detail=f"上传失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Upload failed: {str(e)}")
 
 
 @router.get("", response_model=ResumeListResponse)
@@ -124,13 +124,13 @@ async def list_resumes(
     Get list of resumes with pagination
     """
     try:
-        # 计算偏移量
+        # Compute offset
         offset = (page - 1) * limit
         
-        # 查询总数
+        # Total count
         total = db.query(Resume).count()
         
-        # 查询数据（按创建时间倒序）
+        # Query data (latest first)
         resumes = (
             db.query(Resume)
             .order_by(Resume.created_at.desc())
@@ -139,14 +139,14 @@ async def list_resumes(
             .all()
         )
         
-        # 转换为响应格式
+        # Convert to response format
         items = [ResumeResponse(**resume.to_dict()) for resume in resumes]
         
         return ResumeListResponse(total=total, items=items)
         
     except Exception as e:
         logger.error(f"Failed to list resumes: {e}")
-        raise HTTPException(status_code=500, detail=f"获取列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch list: {str(e)}")
 
 
 @router.get("/{resume_id}", response_model=ResumeResponse)
@@ -160,7 +160,7 @@ async def get_resume(
     resume = db.query(Resume).filter(Resume.id == resume_id).first()
     
     if not resume:
-        raise HTTPException(status_code=404, detail="简历不存在")
+        raise HTTPException(status_code=404, detail="Resume not found")
     
     return ResumeResponse(**resume.to_dict())
 
@@ -177,13 +177,13 @@ async def download_resume(
     resume = db.query(Resume).filter(Resume.id == resume_id).first()
     
     if not resume:
-        raise HTTPException(status_code=404, detail="简历不存在")
+        raise HTTPException(status_code=404, detail="Resume not found")
     
     file_path = Path(resume.file_path)
     
     if not file_path.exists():
         logger.error(f"File not found: {file_path}")
-        raise HTTPException(status_code=404, detail="文件不存在")
+        raise HTTPException(status_code=404, detail="File not found")
     
     # 返回文件
     return FileResponse(
@@ -205,7 +205,7 @@ async def delete_resume(
     resume = db.query(Resume).filter(Resume.id == resume_id).first()
     
     if not resume:
-        raise HTTPException(status_code=404, detail="简历不存在")
+        raise HTTPException(status_code=404, detail="Resume not found")
     
     # 删除文件
     file_path = Path(resume.file_path)
@@ -222,4 +222,4 @@ async def delete_resume(
     
     logger.info(f"Resume deleted: {resume_id}")
     
-    return {"status": "success", "message": "简历已删除"}
+    return {"status": "success", "message": "Resume deleted"}

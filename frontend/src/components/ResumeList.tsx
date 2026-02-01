@@ -22,7 +22,7 @@ export function ResumeList() {
           }}
           className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
         >
-          重试
+          Retry
         </button>
       </div>
     );
@@ -47,10 +47,10 @@ export function ResumeList() {
           <FileText className="w-10 h-10 text-gray-400" />
         </div>
         <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          还没有简历
+          No resumes yet
         </h3>
         <p className="text-gray-600 text-sm">
-          上传您的第一份简历开始管理
+          Upload your first resume to get started
         </p>
       </motion.div>
     );
@@ -61,9 +61,9 @@ export function ResumeList() {
       {/* 头部统计 */}
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-bold text-gray-900">我的简历</h2>
+          <h2 className="text-xl font-bold text-gray-900">My Resumes</h2>
           <p className="text-sm text-gray-600 mt-1">
-            共 {resumes.length} 份简历
+            Total {resumes.length} resumes
           </p>
         </div>
       </div>

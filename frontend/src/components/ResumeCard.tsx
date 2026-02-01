@@ -25,7 +25,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
   };
   
   const handleDelete = async () => {
-    if (window.confirm(`确定要删除 "${resume.originalName}" 吗？`)) {
+    if (window.confirm(`Are you sure you want to delete "${resume.originalName}"?`)) {
       try {
         await deleteResume(resume.id);
       } catch (error) {
@@ -36,17 +36,17 @@ export function ResumeCard({ resume }: ResumeCardProps) {
   
   const handleMatch = async () => {
     if (!resume.parsedData) {
-      alert('❌ 简历数据不完整，无法匹配');
+      alert('❌ Resume data is incomplete. Matching is unavailable.');
       return;
     }
     
     setIsMatching(true);
     try {
       const results = await matchResumeToJobs(resume.id);
-      alert(`✅ 成功匹配 ${results.length} 个职位！正在跳转到职位列表...`);
+      alert(`✅ Matched ${results.length} jobs successfully! Redirecting...`);
       setTimeout(() => navigate('/jobs'), 1000);
     } catch (error) {
-      alert('❌ 匹配失败，请确保后端服务正在运行');
+      alert('❌ Match failed. Please make sure the backend is running.');
     } finally {
       setIsMatching(false);
     }
@@ -63,7 +63,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
   const formatDate = (dateString?: string | null): string => {
     if (!dateString) return '-';
     const date = new Date(dateString);
-    return date.toLocaleDateString('zh-CN', {
+    return date.toLocaleDateString('en-US', {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
@@ -129,17 +129,17 @@ export function ResumeCard({ resume }: ResumeCardProps) {
           <div className="mt-3">
             {resume.status === 'ready' && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                ✓ 就绪
+                ✓ Ready
               </span>
             )}
             {resume.status === 'processing' && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                ⌛ 处理中
+                ⌛ Processing
               </span>
             )}
             {resume.status === 'error' && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                ✗ 错误
+                ✗ Error
               </span>
             )}
           </div>
@@ -157,12 +157,12 @@ export function ResumeCard({ resume }: ResumeCardProps) {
           {isMatching ? (
             <>
               <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-              匹配中...
+              Matching...
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4 mr-1.5" />
-              匹配职位
+              Match Jobs
             </>
           )}
         </button>
@@ -174,7 +174,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
             className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
           >
             <Download className="w-4 h-4 mr-1.5" />
-            下载
+            Download
           </button>
           
           <button
@@ -182,7 +182,7 @@ export function ResumeCard({ resume }: ResumeCardProps) {
             className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-red-700 bg-red-50 rounded-lg hover:bg-red-100 transition-colors"
           >
             <Trash2 className="w-4 h-4 mr-1.5" />
-            删除
+            Delete
           </button>
         </div>
       </div>

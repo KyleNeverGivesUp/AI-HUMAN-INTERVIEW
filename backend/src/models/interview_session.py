@@ -82,3 +82,23 @@ class InterviewSession(Base):
             'createdAt': self.created_at.isoformat() if self.created_at else None,
             'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
         }
+
+    def to_summary_dict(self):
+        """Convert to lightweight summary dictionary for list views"""
+        return {
+            'id': self.id,
+            'roomName': self.room_name,
+            'participantName': self.participant_name,
+            'jobId': self.job_id,
+            'jobTitle': self.job_title,
+            'jobCompany': self.job_company,
+            'resumeId': self.resume_id,
+            'startedAt': self.started_at.isoformat() if self.started_at else None,
+            'endedAt': self.ended_at.isoformat() if self.ended_at else None,
+            'durationSeconds': self.duration_seconds,
+            'questionCount': self.question_count,
+            'overallScore': self.overall_score,
+            'isEvaluated': self.is_evaluated,
+            'createdAt': self.created_at.isoformat() if self.created_at else None,
+            'updatedAt': self.updated_at.isoformat() if self.updated_at else None,
+        }

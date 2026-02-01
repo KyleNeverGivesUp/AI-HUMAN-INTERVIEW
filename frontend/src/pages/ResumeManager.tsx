@@ -52,7 +52,7 @@ export function ResumeManager() {
         {/* Page Content */}
         <div className="flex-1 p-4 lg:p-6 overflow-auto">
           <div className="max-w-7xl mx-auto">
-            {/* 页面头部 */}
+            {/* Page Header */}
             <motion.div
               initial={{ opacity: 0, y: -20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -60,19 +60,19 @@ export function ResumeManager() {
             >
               <div className="flex items-center space-x-3 mb-2">
                 <FileText className="w-8 h-8 text-primary" />
-                <h1 className="text-3xl font-bold text-gray-900">简历管理</h1>
+                <h1 className="text-3xl font-bold text-gray-900">Resume Manager</h1>
               </div>
               <p className="text-gray-600">
-                上传和管理您的简历文档
+                Upload and manage your resume files
               </p>
             </motion.div>
             
-            {/* 上传区域 */}
+            {/* Upload */}
             <div className="mb-8">
               <ResumeUpload />
             </div>
             
-            {/* 简历列表 */}
+            {/* Resume List */}
             <ResumeList />
           </div>
         </div>

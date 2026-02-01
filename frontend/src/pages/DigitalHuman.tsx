@@ -14,6 +14,13 @@ type ChatMessage = {
   text: string;
 };
 
+type InteractionMode = 'text' | 'voice' | 'video';
+
+type InterviewTurn = {
+  role: 'interviewer' | 'candidate';
+  content: string;
+};
+
 export function DigitalHuman() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -34,6 +41,7 @@ export function DigitalHuman() {
   const [livekitParticipants, setLivekitParticipants] = useState<string[]>([]);
   const [isConnecting, setIsConnecting] = useState(false);
   const [lastLatencyMs, setLastLatencyMs] = useState<number | null>(null);
+  const [interactionMode, setInteractionMode] = useState<InteractionMode>('text');
 
   const livekitRoomRef = useRef<Room | null>(null);
   const livekitJoinTimesRef = useRef<Map<string, number>>(new Map());
@@ -57,6 +65,32 @@ export function DigitalHuman() {
 
   const addSystemMessage = (text: string) => {
     setMessages((prev) => [...prev, { role: 'system', text }]);
+  };
+
+  const buildConversationHistory = (history: ChatMessage[]): InterviewTurn[] => {
+    return history
+      .filter((msg) => msg.role === 'user' || msg.role === 'ai')
+      .map((msg) => ({
+        role: msg.role === 'ai' ? 'interviewer' : 'candidate',
+        content: msg.text,
+      }));
+  };
+
+  const persistInterviewSession = async (sessionId: string, conversation: InterviewTurn[]) => {
+    try {
+      await axios.post(`${API_URL}/api/interviews/${sessionId}/save`, conversation, {
+        params: {
+          job_id: jobId ?? undefined,
+          resume_id: resumeId ?? undefined,
+          room_name: sessionId,
+          participant_name: 'User',
+        },
+      });
+      await axios.post(`${API_URL}/api/interviews/${sessionId}/evaluate`);
+      console.log('[Interview] session saved and evaluated', sessionId);
+    } catch (error) {
+      console.error('Failed to save/evaluate interview session:', error);
+    }
   };
 
   useEffect(() => {
@@ -118,6 +152,7 @@ export function DigitalHuman() {
 
   const endSession = async () => {
     const roomToEnd = roomName;
+    const conversation = buildConversationHistory(messages);
     cleanupMedia();
     if (livekitRoomRef.current) {
       livekitRoomRef.current.disconnect();
@@ -138,6 +173,9 @@ export function DigitalHuman() {
     livekitJoinedLoggedRef.current.clear();
 
     if (roomToEnd) {
+      if (conversation.length > 0) {
+        void persistInterviewSession(roomToEnd, conversation);
+      }
       try {
         await axios.delete(`${API_URL}/api/rooms/${roomToEnd}`, { timeout: 5000 });
       } catch (error) {
@@ -179,12 +217,14 @@ export function DigitalHuman() {
   };
 
   const sendMessage = () => {
+    if (interactionMode !== 'text') return;
     if (!message.trim()) return;
     handleSendMessage(message);
     setMessage('');
   };
 
   const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+    if (interactionMode !== 'text') return;
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -467,6 +507,38 @@ export function DigitalHuman() {
           <p className="text-sm sm:text-base text-gray-600">
             Real-time mock interview with live AI avatar
           </p>
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-2 text-sm">
+            <button
+              onClick={() => setInteractionMode('text')}
+              className={`px-4 py-2 rounded-full border transition-colors ${
+                interactionMode === 'text'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+              }`}
+            >
+              Text
+            </button>
+            <button
+              onClick={() => setInteractionMode('voice')}
+              className={`px-4 py-2 rounded-full border transition-colors ${
+                interactionMode === 'voice'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+              }`}
+            >
+              Voice
+            </button>
+            <button
+              onClick={() => setInteractionMode('video')}
+              className={`px-4 py-2 rounded-full border transition-colors ${
+                interactionMode === 'video'
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-blue-400'
+              }`}
+            >
+              Video
+            </button>
+          </div>
         </motion.div>
 
         <motion.div
@@ -643,12 +715,18 @@ export function DigitalHuman() {
                       onChange={(e) => setMessage(e.target.value)}
                       onKeyPress={handleKeyPress}
                       placeholder="Send a message..."
+                      disabled={interactionMode !== 'text'}
                       className="flex-1 px-4 py-3 border border-gray-300 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent disabled:bg-gray-100 disabled:cursor-not-allowed"
                       rows={2}
                     />
                     <button
                       onClick={sendMessage}
-                      disabled={!message.trim() || isProcessing || !livekitConnected}
+                      disabled={
+                        interactionMode !== 'text' ||
+                        !message.trim() ||
+                        isProcessing ||
+                        !livekitConnected
+                      }
                       className="w-full sm:w-auto p-3 rounded-xl bg-primary text-white hover:bg-primary-dark transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
                     >
                       <Send className="w-5 h-5" />
