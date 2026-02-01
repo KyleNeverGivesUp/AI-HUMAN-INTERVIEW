@@ -1,20 +1,28 @@
 import { create } from 'zustand';
-import { Job, TabType } from '@/types';
+import axios from 'axios';
+import { Job, TabType, JobMatchResult } from '@/types';
 
 interface JobStore {
   jobs: Job[];
   currentTab: TabType;
   selectedJob: Job | null;
+  isLoading: boolean;
+  error: string | null;
+  
+  // Actions
   setJobs: (jobs: Job[]) => void;
   setCurrentTab: (tab: TabType) => void;
   setSelectedJob: (job: Job | null) => void;
-  toggleLike: (jobId: string) => void;
-  applyToJob: (jobId: string) => void;
+  fetchJobs: () => Promise<void>;
+  toggleLike: (jobId: string) => Promise<void>;
+  applyToJob: (jobId: string) => Promise<void>;
+  unapplyJob: (jobId: string) => Promise<void>;
+  matchResumeToJobs: (resumeId: string) => Promise<JobMatchResult[]>;
   getFilteredJobs: () => Job[];
 }
 
-// Mock data
-const mockJobs: Job[] = [
+// Empty initial jobs - will be loaded from API
+const initialJobs: Job[] = [
   {
     id: '1',
     title: 'Web Application Developer',
@@ -158,9 +166,11 @@ const mockJobs: Job[] = [
 ];
 
 export const useJobStore = create<JobStore>((set, get) => ({
-  jobs: mockJobs,
+  jobs: initialJobs,
   currentTab: 'matched',
   selectedJob: null,
+  isLoading: false,
+  error: null,
   
   setJobs: (jobs) => set({ jobs }),
   
@@ -168,29 +178,95 @@ export const useJobStore = create<JobStore>((set, get) => ({
   
   setSelectedJob: (job) => set({ selectedJob: job }),
   
-  toggleLike: (jobId) => set((state) => ({
-    jobs: state.jobs.map((job) =>
-      job.id === jobId ? { ...job, isLiked: !job.isLiked } : job
-    ),
-  })),
+  // Fetch jobs from API
+  fetchJobs: async () => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await axios.get('/api/jobs');
+      set({ jobs: response.data.jobs, isLoading: false });
+    } catch (error) {
+      console.error('Failed to fetch jobs:', error);
+      set({ error: 'Failed to load jobs', isLoading: false });
+    }
+  },
   
-  applyToJob: (jobId) => set((state) => ({
-    jobs: state.jobs.map((job) =>
-      job.id === jobId ? { ...job, hasApplied: true } : job
-    ),
-  })),
+  // Toggle like status with API call
+  toggleLike: async (jobId) => {
+    try {
+      const response = await axios.post(`/api/jobs/${jobId}/like`);
+      set((state) => ({
+        jobs: state.jobs.map((job) =>
+          job.id === jobId ? { ...job, isLiked: response.data.liked } : job
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to toggle like:', error);
+    }
+  },
+  
+  // Apply to job with API call
+  applyToJob: async (jobId) => {
+    try {
+      await axios.post(`/api/jobs/${jobId}/apply`);
+      set((state) => ({
+        jobs: state.jobs.map((job) =>
+          job.id === jobId ? { ...job, hasApplied: true } : job
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to apply to job:', error);
+    }
+  },
+  
+  // Unapply to job (move back from Applied to Matched)
+  unapplyJob: async (jobId) => {
+    try {
+      await axios.post(`/api/jobs/${jobId}/unapply`);
+      set((state) => ({
+        jobs: state.jobs.map((job) =>
+          job.id === jobId ? { ...job, hasApplied: false } : job
+        ),
+      }));
+    } catch (error) {
+      console.error('Failed to unapply job:', error);
+    }
+  },
+  
+  // Match resume to jobs using LLM
+  matchResumeToJobs: async (resumeId: string) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await axios.post(`/api/jobs/match/${resumeId}`);
+      const matchResults: JobMatchResult[] = response.data.matches;
+      
+      // Update jobs with match scores
+      set((state) => ({
+        jobs: state.jobs.map((job) => {
+          const match = matchResults.find((m) => m.jobId === job.id);
+          return match ? { ...job, matchPercentage: match.matchScore } : job;
+        }),
+        isLoading: false,
+      }));
+      
+      return matchResults;
+    } catch (error) {
+      console.error('Failed to match resume to jobs:', error);
+      set({ error: 'Failed to analyze job matches', isLoading: false });
+      throw error;
+    }
+  },
   
   getFilteredJobs: () => {
     const { jobs, currentTab } = get();
     
     switch (currentTab) {
       case 'liked':
-        return jobs.filter((job) => job.isLiked);
+        return jobs.filter((job) => job.isLiked && !job.hasApplied);
       case 'applied':
         return jobs.filter((job) => job.hasApplied);
       case 'matched':
       default:
-        return jobs.filter((job) => !job.hasApplied);
+        return jobs.filter((job) => !job.hasApplied && !job.isLiked);
     }
   },
 }));

@@ -55,6 +55,8 @@ async def create_room(request: RoomCreateRequest):
         session = await agent_service.create_session(
             room_name=request.room_name,
             participant_name=request.participant_name,
+            job_id=request.job_id,
+            resume_id=request.resume_id,
         )
 
         logger.info(

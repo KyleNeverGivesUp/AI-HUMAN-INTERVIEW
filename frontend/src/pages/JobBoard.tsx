@@ -4,9 +4,16 @@ import { Sidebar } from '@/components/Sidebar';
 import { JobList } from '@/components/JobList';
 import { MockInterviewPromo } from '@/components/MockInterviewPromo';
 import { motion } from 'framer-motion';
+import { useJobStore } from '@/store/useJobStore';
 
 export function JobBoard() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const fetchJobs = useJobStore((state) => state.fetchJobs);
+
+  // Fetch jobs on mount
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
 
   useEffect(() => {
     if (sidebarOpen) {

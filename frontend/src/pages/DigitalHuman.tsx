@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { motion } from 'framer-motion';
-import { Link } from 'react-router-dom';
-import { Send, Mic, Video, Phone } from 'lucide-react';
+import { Link, useSearchParams, useNavigate } from 'react-router-dom';
+import { Send, Mic, Video, Phone, Award } from 'lucide-react';
 import axios from 'axios';
 import { Room, RoomEvent, Track } from 'livekit-client';
 
@@ -15,6 +15,11 @@ type ChatMessage = {
 };
 
 export function DigitalHuman() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const jobId = searchParams.get('jobId');
+  const resumeId = searchParams.get('resumeId');
+  
   const [roomName, setRoomName] = useState('');
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -63,16 +68,28 @@ export function DigitalHuman() {
     setIsConnecting(true);
     try {
       const generatedRoomName = `room-${Date.now()}`;
-      const response = await axios.post(`${API_URL}/api/rooms/create`, {
+      
+      // Include job and resume context if available
+      const requestBody: any = {
         room_name: generatedRoomName,
         participant_name: 'User',
-      });
+      };
+      
+      if (jobId) requestBody.job_id = jobId;
+      if (resumeId) requestBody.resume_id = resumeId;
+      
+      const response = await axios.post(`${API_URL}/api/rooms/create`, requestBody);
 
       setRoomName(generatedRoomName);
       setLivekitUrl(response.data?.url ?? null);
       setLivekitToken(response.data?.token ?? null);
       setUseAvatar(typeof response.data?.use_tavus === 'boolean' ? response.data.use_tavus : null);
-      addSystemMessage('LiveKit session created. Connecting...');
+      
+      if (jobId && resumeId) {
+        addSystemMessage('Interview session created with JD matching. Connecting...');
+      } else {
+        addSystemMessage('LiveKit session created. Connecting...');
+      }
     } catch (error) {
       console.error('Failed to create session:', error);
       addSystemMessage('Failed to create session. Make sure the backend is running.');
@@ -675,6 +692,22 @@ export function DigitalHuman() {
             <h4 className="font-semibold mb-2">Low Latency</h4>
             <p className="text-sm text-gray-600">Minimal delay for seamless conversation</p>
           </div>
+        </motion.div>
+
+        {/* Interview Evaluate Button */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="mt-8 text-center"
+        >
+          <button
+            onClick={() => navigate('/interview-evaluate')}
+            className="inline-flex items-center space-x-2 px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl"
+          >
+            <Award className="w-5 h-5" />
+            <span className="font-semibold">View Interview Evaluations</span>
+          </button>
         </motion.div>
       </div>
     </div>

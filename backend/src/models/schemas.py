@@ -7,6 +7,8 @@ class RoomCreateRequest(BaseModel):
     """Request to create a LiveKit room"""
     room_name: str = Field(..., description="Unique room identifier")
     participant_name: str = Field(default="User", description="Participant display name")
+    job_id: Optional[str] = Field(default=None, description="Job ID for interview context")
+    resume_id: Optional[str] = Field(default=None, description="Resume ID for interview context")
 
 
 class RoomCreateResponse(BaseModel):
@@ -71,3 +73,23 @@ class SkillExecuteResponse(BaseModel):
     response: str
     selected_skill: Optional[SkillMetadata] = None
     selection_reason: Optional[str] = None
+
+
+# Resume schemas
+class ResumeResponse(BaseModel):
+    """Resume response model"""
+    id: str
+    fileName: str
+    originalName: str
+    fileSize: int
+    fileType: str
+    status: str
+    parsedData: Optional[str] = None
+    createdAt: Optional[str] = None
+    updatedAt: Optional[str] = None
+
+
+class ResumeListResponse(BaseModel):
+    """Resume list response"""
+    total: int
+    items: list[ResumeResponse]

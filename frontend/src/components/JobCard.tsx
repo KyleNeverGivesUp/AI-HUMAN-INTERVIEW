@@ -13,7 +13,7 @@ interface JobCardProps {
 
 export function JobCard({ job, onClick }: JobCardProps) {
   const navigate = useNavigate();
-  const { toggleLike, applyToJob, setSelectedJob } = useJobStore();
+  const { currentTab, toggleLike, applyToJob, unapplyJob, setSelectedJob } = useJobStore();
 
   const handleCardClick = () => {
     setSelectedJob(job);
@@ -24,6 +24,11 @@ export function JobCard({ job, onClick }: JobCardProps) {
   const handleApply = (e: React.MouseEvent) => {
     e.stopPropagation();
     applyToJob(job.id);
+  };
+
+  const handleUnapply = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    unapplyJob(job.id);
   };
 
   const handleMockInterview = (e: React.MouseEvent) => {
@@ -46,9 +51,13 @@ export function JobCard({ job, onClick }: JobCardProps) {
     >
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start space-x-4 flex-1">
-          {/* Match Percentage Circle */}
-          <div className="flex-shrink-0">
-            <CircularProgress percentage={job.matchPercentage} size={80} />
+          {/* Company Logo */}
+          <div className="flex-shrink-0 w-16 h-16 bg-white rounded-lg flex items-center justify-center overflow-hidden border border-gray-200">
+            <img 
+              src="/tmobile-logo.png" 
+              alt={job.company}
+              className="w-full h-full object-contain p-2"
+            />
           </div>
 
           {/* Job Info */}
@@ -70,22 +79,30 @@ export function JobCard({ job, onClick }: JobCardProps) {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={handleToggleLike}
-            className={cn(
-              "p-2 rounded-lg transition-colors",
-              job.isLiked
-                ? "text-red-500 bg-red-50 hover:bg-red-100"
-                : "text-gray-400 hover:text-red-500 hover:bg-red-50"
-            )}
-          >
-            <Heart className={cn("w-5 h-5", job.isLiked && "fill-current")} />
-          </button>
-          <button className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
-            <Edit className="w-5 h-5" />
-          </button>
+        {/* Right side: Actions + Match Circle */}
+        <div className="flex items-start space-x-4">
+          {/* Actions */}
+          <div className="flex items-center space-x-2">
+            <button
+              onClick={handleToggleLike}
+              className={cn(
+                "p-2 rounded-lg transition-colors",
+                job.isLiked
+                  ? "text-red-500 bg-red-50 hover:bg-red-100"
+                  : "text-gray-400 hover:text-red-500 hover:bg-red-50"
+              )}
+            >
+              <Heart className={cn("w-5 h-5", job.isLiked && "fill-current")} />
+            </button>
+            <button className="p-2 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors">
+              <Edit className="w-5 h-5" />
+            </button>
+          </div>
+
+          {/* Match Percentage Circle */}
+          <div className="flex-shrink-0">
+            <CircularProgress percentage={job.matchPercentage} size={80} />
+          </div>
         </div>
       </div>
 
@@ -114,18 +131,29 @@ export function JobCard({ job, onClick }: JobCardProps) {
 
       {/* Action Buttons */}
       <div className="flex items-center space-x-3">
-        <button
-          onClick={handleApply}
-          disabled={job.hasApplied}
-          className={cn(
-            "flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all duration-200",
-            job.hasApplied
-              ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-          )}
-        >
-          {job.hasApplied ? 'Applied' : 'Apply'}
-        </button>
+        {currentTab === 'applied' ? (
+          // Show "Move to Matched" button in Applied tab
+          <button
+            onClick={handleUnapply}
+            className="flex-1 px-4 py-2.5 rounded-lg font-semibold bg-blue-100 text-blue-700 hover:bg-blue-200 transition-all duration-200"
+          >
+            ← Move to Matched
+          </button>
+        ) : (
+          // Show regular Apply button in other tabs
+          <button
+            onClick={handleApply}
+            disabled={job.hasApplied}
+            className={cn(
+              "flex-1 px-4 py-2.5 rounded-lg font-semibold transition-all duration-200",
+              job.hasApplied
+                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            )}
+          >
+            {job.hasApplied ? 'Applied' : 'Apply'}
+          </button>
+        )}
         <button
           onClick={handleMockInterview}
           className="flex-1 px-4 py-2.5 rounded-lg font-semibold bg-accent text-white hover:bg-accent-dark transition-all duration-200 shadow-lg shadow-accent/20"

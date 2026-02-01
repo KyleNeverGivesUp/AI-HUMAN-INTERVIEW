@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
@@ -13,12 +13,27 @@ import {
   Building2
 } from 'lucide-react';
 import { useJobStore } from '@/store/useJobStore';
-import { CircularProgress } from '@/components/CircularProgress';
+import { useResumeStore } from '@/store/useResumeStore';
+import { JobMatchAnalysis } from '@/components/JobMatchAnalysis';
 import { cn } from '@/utils/cn';
 
 export function JobDetail() {
   const navigate = useNavigate();
   const { selectedJob, toggleLike, applyToJob } = useJobStore();
+  const { resumes, fetchResumes } = useResumeStore();
+  const [selectedResumeId, setSelectedResumeId] = useState<string | undefined>();
+
+  // Fetch resumes on mount
+  useEffect(() => {
+    fetchResumes();
+  }, [fetchResumes]);
+
+  // Auto-select first resume if available
+  useEffect(() => {
+    if (resumes.length > 0 && !selectedResumeId) {
+      setSelectedResumeId(resumes[0].id);
+    }
+  }, [resumes, selectedResumeId]);
 
   useEffect(() => {
     if (!selectedJob) {
@@ -218,38 +233,18 @@ export function JobDetail() {
               transition={{ delay: 0.2 }}
               className="sticky top-24 space-y-6"
             >
-              {/* Match Score */}
-              <div className="card text-center">
-                <h3 className="text-lg font-bold text-gray-900 mb-4">
-                  Why is this job a good fit for me?
-                </h3>
-                <div className="flex justify-center mb-4">
-                  <CircularProgress percentage={selectedJob.matchPercentage} size={120} />
-                </div>
-                <div className="space-y-3 text-left">
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Education</span>
-                    <span className="text-sm font-bold text-green-600">93%</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Work Exp</span>
-                    <span className="text-sm font-bold text-green-600">80%</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Skills</span>
-                    <span className="text-sm font-bold text-green-600">93%</span>
-                  </div>
-                  <div className="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
-                    <span className="text-sm font-medium text-gray-700">Interests</span>
-                    <span className="text-sm font-bold text-gray-600">44%</span>
-                  </div>
-                </div>
-              </div>
+              {/* Match Score Analysis */}
+              <JobMatchAnalysis job={selectedJob} resumeId={selectedResumeId} />
 
               {/* Action Buttons */}
               <div className="space-y-3">
                 <button
-                  onClick={() => applyToJob(selectedJob.id)}
+                  onClick={() => {
+                    if (selectedJob.applicationUrl) {
+                      window.open(selectedJob.applicationUrl, '_blank');
+                      applyToJob(selectedJob.id);
+                    }
+                  }}
                   disabled={selectedJob.hasApplied}
                   className={cn(
                     "w-full px-6 py-3 rounded-lg font-semibold transition-all duration-200",
@@ -261,7 +256,14 @@ export function JobDetail() {
                   {selectedJob.hasApplied ? 'Applied ✓' : 'Apply Now'}
                 </button>
                 <button 
-                  onClick={() => navigate('/digital-human')}
+                  onClick={() => {
+                    if (selectedResumeId) {
+                      navigate(`/digital-human?jobId=${selectedJob.id}&resumeId=${selectedResumeId}`);
+                    } else {
+                      alert('Please upload a resume first to start interview with JD matching');
+                      navigate('/resume');
+                    }
+                  }}
                   className="w-full px-6 py-3 rounded-lg font-semibold bg-accent text-white hover:bg-accent-dark transition-all duration-200 shadow-lg hover:shadow-xl"
                 >
                   🎥 Start Interview

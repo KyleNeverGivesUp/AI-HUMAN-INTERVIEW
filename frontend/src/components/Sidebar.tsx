@@ -8,6 +8,7 @@ import {
   Settings, 
   CreditCard,
   Sparkles,
+  Award,
   X
 } from 'lucide-react';
 import { cn } from '@/utils/cn';
@@ -20,6 +21,7 @@ interface SidebarProps {
 const menuItems = [
   { icon: Briefcase, label: 'Jobs', path: '/' },
   { icon: Video, label: 'AI Mock Interview', path: '/digital-human' },
+  { icon: Award, label: 'Interview Evaluate', path: '/interview-evaluate' },
   { icon: FileText, label: 'Resume', path: '/resume' },
   { icon: User, label: 'Profile', path: '/profile' },
   { icon: Settings, label: 'Setting', path: '/settings' },

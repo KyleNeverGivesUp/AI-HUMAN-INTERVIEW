@@ -7,8 +7,12 @@ import uvicorn
 
 from .config.settings import settings
 from .api.routes import router
+from .api.resume_routes import router as resume_router
+from .api.job_routes import router as job_router
+from .api.interview_routes import router as interview_router
 from .services.agent import agent_service
 from .services.avatar import tavus_avatar_service
+from .database import init_db
 
 # Configure logging
 logging.basicConfig(
@@ -43,6 +47,9 @@ app.add_middleware(
 
 # Include routers
 app.include_router(router, prefix="/api")
+app.include_router(resume_router, prefix="/api")
+app.include_router(job_router, prefix="/api")
+app.include_router(interview_router, prefix="/api")
 
 
 @app.get("/.well-known/oauth-authorization-server")
@@ -60,6 +67,9 @@ async def startup_event():
     logger.info("Starting LibaAI Digital Human API")
     logger.info(f"Debug mode: {settings.debug}")
     logger.info(f"LiveKit URL: {settings.livekit_url}")
+    
+    # Initialize database
+    init_db()
     
     # Verify configuration
     if not settings.livekit_api_key:

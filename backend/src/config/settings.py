@@ -40,10 +40,14 @@ class Settings(BaseSettings):
     app_name: str = "My-FastAPI-App"
 
     # Anthropic LLM Configuration
-    anthropic_base_url: str = "https://cc.580ai.net"
-    anthropic_api_key: str = "sk-RTq0GUXIac4ev1gff8HGBgZH4roCDkaqYzFGHIeIl7yKwUJu"
-    anthropic_model: str = "claude-3-5-haiku-20241022"
+    anthropic_base_url: str = ""  # Read from .env
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-sonnet-4-20250514"
     use_skills: bool = False
+    
+    # Multi-model configuration for resume matching
+    anthropic_model_default: str = "sonnet4"  # Only confirmed working model
+    anthropic_model_sonnet4: str = "claude-sonnet-4-20250514"
 
     # Tavus Configuration
     tavus_api_key: str = ""

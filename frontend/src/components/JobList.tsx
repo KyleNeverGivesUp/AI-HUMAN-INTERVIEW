@@ -6,15 +6,22 @@ import { TabType } from '@/types';
 import { JobCard } from './JobCard';
 import { cn } from '@/utils/cn';
 
-const tabs: { id: TabType; label: string; count?: number }[] = [
-  { id: 'matched', label: 'Matched' },
-  { id: 'liked', label: 'Liked', count: 1 },
-  { id: 'applied', label: 'Applied', count: 1 },
-];
+// Moved tabs calculation into component to access store
 
 export function JobList() {
-  const { currentTab, setCurrentTab, getFilteredJobs, setSelectedJob } = useJobStore();
+  const { jobs, currentTab, setCurrentTab, getFilteredJobs, setSelectedJob } = useJobStore();
   const [searchQuery, setSearchQuery] = useState('');
+  
+  // Calculate counts for each tab
+  const likedCount = jobs.filter(job => job.isLiked && !job.hasApplied).length;
+  const appliedCount = jobs.filter(job => job.hasApplied).length;
+  const matchedCount = jobs.filter(job => !job.hasApplied && !job.isLiked).length;
+  
+  const tabs: { id: TabType; label: string; count?: number }[] = [
+    { id: 'matched', label: 'Matched', count: matchedCount },
+    { id: 'liked', label: 'Liked', count: likedCount },
+    { id: 'applied', label: 'Applied', count: appliedCount },
+  ];
   
   const filteredJobs = getFilteredJobs();
   const displayedJobs = filteredJobs.filter((job) =>

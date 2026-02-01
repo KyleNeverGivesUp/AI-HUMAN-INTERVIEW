@@ -23,6 +23,9 @@ export function CircularProgress({
     return '#EF4444'; // red
   };
 
+  // Show "Unrated" when percentage is 0
+  const isUnrated = percentage === 0;
+
   return (
     <div className="relative inline-flex items-center justify-center">
       <svg width={size} height={size} className="transform -rotate-90">
@@ -35,25 +38,35 @@ export function CircularProgress({
           strokeWidth={strokeWidth}
           fill="none"
         />
-        {/* Progress circle */}
-        <motion.circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          stroke={getColor(percentage)}
-          strokeWidth={strokeWidth}
-          fill="none"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          initial={{ strokeDashoffset: circumference }}
-          animate={{ strokeDashoffset: offset }}
-          transition={{ duration: 1, ease: 'easeOut' }}
-        />
+        {/* Progress circle - only show if rated */}
+        {!isUnrated && (
+          <motion.circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            stroke={getColor(percentage)}
+            strokeWidth={strokeWidth}
+            fill="none"
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ duration: 1, ease: 'easeOut' }}
+          />
+        )}
       </svg>
       <div className="absolute inset-0 flex items-center justify-center">
         <div className="text-center">
-          <div className="text-2xl font-bold">{percentage}%</div>
-          <div className="text-xs text-gray-500">Match</div>
+          {isUnrated ? (
+            <>
+              <div className="text-xs font-semibold text-gray-400">Unrated</div>
+            </>
+          ) : (
+            <>
+              <div className="text-2xl font-bold">{percentage}%</div>
+              <div className="text-xs text-gray-500">Match</div>
+            </>
+          )}
         </div>
       </div>
     </div>
