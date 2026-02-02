@@ -1,30 +1,46 @@
 # CareerBoost AI
 
-Real-time multi-modal AI interview application. Text in, AI avatar speaks in sync with audio/video.
+Full-stack job board, resume matching, and AI interview platform with real-time avatar audio/video.
 
-This repository is a challenge covering both the frontend job board and the backend real‑time digital human tasks.
+## What it does
+- Resume manager: upload/list/download/delete, PDF text extraction stored in SQLite.
+- Job board: browse, search, like, apply/unapply; seed jobs.
+- JD match analysis: per-job and batch matching using Anthropic Sonnet 4 with caching.
+- Mock interview: LiveKit room + LLM-driven interviewer, optional Tavus avatar video.
+- Interview persistence and evaluation: save sessions, async scoring, feedback dashboard.
+- Skills system: role-specific interview guides in backend/skills, plus /api/skills endpoints.
 
-## What It Does
-- Frontend joins a LiveKit room and plays remote tracks.
-- Local Skills layer selects role-specific interview prompts from `backend/skills/`.
-- Backend calls LLM (OpenRouter), runs TTS, and publishes audio.
-- If `USE_TAVUS=true`, Tavus renders the avatar and publishes audio+video tracks.
-- If `USE_TAVUS=false`, only LiveKit audio is published (no avatar video).
+## Core flows
+### Resume and JD matching
+User uploads resume -> parsed text -> /api/jobs/match/{resume_id} (batch) or /api/jobs/{job_id}/match-analysis/{resume_id} (detail) -> UI renders score, strengths, gaps, recommendations.
 
-## Flow (Simplified)
+### Interview
+User selects job + resume -> /api/rooms/create -> LiveKit session -> /api/say -> LLM generates question -> Edge TTS streams PCM -> LiveKit audio -> Tavus video (optional) -> frontend plays tracks -> /api/interviews/{session_id}/save -> /api/interviews/{session_id}/evaluate.
 
+## Tech stack
+Frontend: React, TypeScript, Vite, Tailwind, Zustand, Framer Motion, LiveKit client.
+Backend: FastAPI, SQLAlchemy + SQLite, LiveKit server SDK, Anthropic, Edge TTS + ffmpeg, Tavus (optional), PyPDF.
+
+## API (high level)
+- Health: GET /api/health
+- LiveKit sessions: POST /api/rooms/create, POST /api/say, GET /api/rooms/{room}/status, DELETE /api/rooms/{room}
+- Metrics: POST /api/metrics/latency
+- Resumes: POST /api/resumes/upload, GET /api/resumes, GET /api/resumes/{id}, GET /api/resumes/{id}/download, DELETE /api/resumes/{id}
+- Jobs: GET /api/jobs, GET /api/jobs/{id}, POST /api/jobs/{id}/like, POST /api/jobs/{id}/apply, POST /api/jobs/{id}/unapply
+- Matching: POST /api/jobs/match/{resume_id}, GET /api/jobs/{job_id}/match-analysis/{resume_id}
+- Interview sessions: GET /api/interviews, GET /api/interviews/{id}, POST /api/interviews/{id}/save, POST /api/interviews/{id}/evaluate, DELETE /api/interviews/{id}
+- Skills: GET /api/skills/metadata, POST /api/skills/execute
+- WebSocket chat: /api/ws/{room_name}
+
+## Quick start (local)
+### Backend
+```bash
+cd backend
+uv venv
+source .venv/bin/activate
+uv pip install -e .
+python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
 ```
-User input (browser)
-  -> /api/say
-  -> [USE_SKILLS=true] Role prompt + local Skills selection
-  -> LLM (OpenRouter lama-3.3-70b)
-  -> TTS (Edge)
-  -> [USE_TAVUS=true] Tavus AvatarSession -> LiveKit A/V tracks
-     [USE_TAVUS=false] LiveKit audio track only
-  -> Frontend plays LiveKit tracks
-```
-
-## Quick Start
 
 ### Frontend
 ```bash
@@ -32,104 +48,22 @@ cd frontend
 npm install
 npm run dev
 ```
-Open: http://localhost:3000/digital-human
+Open http://localhost:3000
 
-### Backend
+### Docker (frontend + backend + livekit)
 ```bash
-cd backend
-uv venv
-uv pip install -e .
-python -m uvicorn src.main:app --reload --host 0.0.0.0 --port 8000
-```
-API docs: http://localhost:8000/docs
-
-## Configuration (`backend/.env`)
-
-Required:
-```env
-LIVEKIT_URL=wss://...
-LIVEKIT_API_KEY=...
-LIVEKIT_API_SECRET=...
-
-OPENROUTER_API_KEY=...
-OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct:free
-
-USE_TAVUS=true
-TAVUS_API_KEY=...
-TAVUS_API_URL=https://tavusapi.com/v2
-TAVUS_REPLICA_ID=...
-TAVUS_PERSONA_ID=...
-TAVUS_AVATAR_NAME=tavus-avatar-agent
-USE_SKILLS=false
+docker compose up --build
 ```
 
-Optional:
-```env
-EDGE_TTS_VOICE=en-US-JennyNeural
-CORS_ORIGINS=["http://localhost:3000", "http://localhost:5173"]
-```
+## Configuration
+Copy `backend/env.example` to `backend/.env` and set:
+- LIVEKIT_URL, LIVEKIT_API_KEY, LIVEKIT_API_SECRET
+- ANTHROPIC_API_KEY (used for matching, interview questions, evaluations)
+- USE_TAVUS + TAVUS_* to enable avatar video
+- EDGE_TTS_* for voice settings
+- USE_SKILLS to enable role-based SKILL.md prompts
 
-## API
-- `POST /api/rooms/create` Create a room (returns LiveKit URL + token).
-- `POST /api/say` Send text to the AI (LLM -> TTS -> publish).
-- `DELETE /api/rooms/{room_name}` End a room.
-- `GET /api/health` Health check.
-
-## Skills (Local)
-- Local Skills live in `backend/skills/<role>/SKILL.md`.
-- When `USE_SKILLS=true`, the backend asks for a role on session start and uses the matching SKILL.md as the system prompt.
-- The flow remains: user input -> role selection -> OpenRouter -> TTS -> LiveKit.
-
-## Demo Checklist
-- Open `/digital-human`.
-- Start a session (room joins).
-- Enter a sentence.
-- If `USE_TAVUS=true`, avatar speaks with audio+video.
-- Logs show t0/t1 latency entries.
-
-## Key Files
-- `backend/src/services/agent.py` LLM + TTS + publish flow.
-- `backend/src/services/avatar.py` Tavus AvatarSession.
-- `backend/src/api/routes.py` `/api/rooms/create`, `/api/say`.
-- `frontend/src/pages/DigitalHuman.tsx` LiveKit UI.
-
----
-
-## 1) Frontend Engineering
-
-### Scope (Job Board + Recommendation Page)
-- Implemented the job board and recommendation experience based on the provided Figma.
-- Added small JS interaction enhancements for usability (chat input, smooth scrolling, etc.).
-
-### Responsive Design (iPhone / iPad)
-Responsive design is implemented with a **mobile‑first** approach:
-- Uses **Tailwind CSS** breakpoints (`sm`, `lg`) to adapt layout and typography.
-- On iPhone: reduced padding and font sizes, allowed wrapping of nav/status rows, capped bubble width with word‑break, and stacked input controls vertically for better touch targets.
-- On iPad: keeps a two‑column layout with larger spacing while keeping the chat panel and video area readable.
-
-### Frontend Stack
-- **React + TypeScript + Vite**
-- **Tailwind CSS** for utility‑first responsive styling
-- **Zustand** for lightweight shared state where needed
-
-## 2) Backend Engineering
-
-### LiveKit Integration
-- Creates rooms and tokens, connects a publisher (`tts-bot`) and streams PCM audio frames.
-
-### Tavus Persona API Integration
-- When `USE_TAVUS=true`, Tavus renders the avatar and publishes synchronized video+audio tracks.
-- When `USE_TAVUS=false`, the system runs **audio‑only** mode via LiveKit.
-
-### Real‑Time Synchronization
-- TTS is **streamed** as PCM chunks, framed, paced, and published to LiveKit in real time.
-- The frontend subscribes to LiveKit tracks and plays audio/video as they arrive.
-
-## Expected Outcome
-**A working prototype of real‑time digital human interaction:**  
-- Text input in, AI avatar speaks in real time with no obvious delay.  
-- Pipeline: **text → LLM → TTS → LiveKit → Tavus → frontend**.
-
-## Notes
-- LLM output is non‑streaming; **TTS + LiveKit** is real‑time streaming.
-- Audio/video sync is driven by the audio stream with paced frame publishing.
+Notes:
+- SQLite data lives in `backend/resumes.db`.
+- Resume files are stored in `backend/storage/resumes`.
+- If LiveKit keys are missing, tokens are mocked and real audio publishing will not work.
