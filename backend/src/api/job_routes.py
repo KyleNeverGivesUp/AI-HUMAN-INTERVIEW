@@ -32,7 +32,7 @@ async def get_jobs(
     """Get jobs list with optional filters"""
     query = db.query(Job)
     
-    # Apply filters
+    # Apply filters~
     if source:
         query = query.filter(Job.source == source)
     if work_type:
