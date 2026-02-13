@@ -29,7 +29,7 @@ async def get_jobs(
     opt: bool = False,
     db: Session = Depends(get_db)
 ):
-    """Get jobs list with optional filters"""
+    """Get jobs list with optional filter"""
     query = db.query(Job)
     
     # Apply filters~
