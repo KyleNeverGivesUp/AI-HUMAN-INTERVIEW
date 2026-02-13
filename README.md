@@ -15,7 +15,7 @@ Full-stack job board, resume matching, and AI interview platform with real-time 
 User uploads resume -> parsed text -> /api/jobs/match/{resume_id} (batch) or /api/jobs/{job_id}/match-analysis/{resume_id} (detail) -> UI renders score, strengths, gaps, recommendations.
 
 ### Interview
-User selects job + resume -> /api/rooms/create -> LiveKit session -> /api/say -> LLM generates question -> Edge TTS streams PCM -> LiveKit audio -> Tavus video (optional) -> frontend plays tracks -> /api/interviews/{session_id}/save -> /api/interviews/{session_id}/evaluate.
+User selects job + resume -> /api/rooms/create -> LiveKit session -> /api/say -> LLM generates question -> Edge TTS streams PCM -> LiveKit audio -> Tavus video (optional) -> frontend plays tracks -> /api/interviews/{session_id}/save -> /api/interviews/{session_id}/evaluate. 
 
 ## Tech stack
 Frontend: React, TypeScript, Vite, Tailwind, Zustand, Framer Motion, LiveKit client.
