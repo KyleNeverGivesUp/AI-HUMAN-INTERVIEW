@@ -18,7 +18,7 @@ User uploads resume -> parsed text -> /api/jobs/match/{resume_id} (batch) or /ap
 User selects job + resume -> /api/rooms/create -> LiveKit session -> /api/say -> LLM generates question -> Edge TTS streams PCM -> LiveKit audio -> Tavus video (optional) -> frontend plays tracks -> /api/interviews/{session_id}/save -> /api/interviews/{session_id}/evaluate. 
 
 ## Tech stack
-Frontend: React, TypeScript, Vite, Tailwind, Zustand, Framer Motion, LiveKit client.
+Frontend: React, TypeScript, Vite, Tailwind, Zustand, Framer Motion, LiveKit client .
 Backend: FastAPI, SQLAlchemy + SQLite, LiveKit server SDK, Anthropic, Edge TTS + ffmpeg, Tavus (optional), PyPDF.
 
 ## API (high level)
