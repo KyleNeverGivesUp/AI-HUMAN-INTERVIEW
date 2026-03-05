@@ -62,7 +62,7 @@ class AgentService:
         room_name: str,
         participant_name: str = "User",
     ) -> dict:
-        """Create a new LiveKit session for the client."""
+        """Create a new LiveKit session for the client. """
         try:
             logger.info("Creating LiveKit room: %s", room_name)
             await self.livekit.create_room(room_name)
