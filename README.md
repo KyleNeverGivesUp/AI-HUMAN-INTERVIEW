@@ -6,7 +6,7 @@ This repository is a challenge covering both the frontend job board and the back
 
 ## What It Does
 - Frontend joins a LiveKit room and plays remote tracks.
-- Backend calls LLM (OpenRouter), runs TTS, and publishes audio.
+- Backend calls LLM (Anthropic), runs TTS, and publishes audio.
 - If `USE_TAVUS=true`, Tavus renders the avatar and publishes audio+video tracks.
 - If `USE_TAVUS=false`, only LiveKit audio is published (no avatar video).
 
@@ -15,7 +15,7 @@ This repository is a challenge covering both the frontend job board and the back
 ```
 User input (browser)
   -> /api/say
-  -> LLM (OpenRouter lama-3.3-70b)
+  -> LLM (Anthropic Claude)
   -> TTS (Edge)
   -> [USE_TAVUS=true] Tavus AvatarSession -> LiveKit A/V tracks
      [USE_TAVUS=false] LiveKit audio track only
@@ -49,8 +49,8 @@ LIVEKIT_URL=wss://...
 LIVEKIT_API_KEY=...
 LIVEKIT_API_SECRET=...
 
-OPENROUTER_API_KEY=...
-OPENROUTER_MODEL=meta-llama/llama-3.3-70b-instruct:free
+ANTHROPIC_API_KEY=...
+ANTHROPIC_MODEL=claude-3-5-haiku-latest
 
 USE_TAVUS=true
 TAVUS_API_KEY=...

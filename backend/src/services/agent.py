@@ -3,7 +3,7 @@ import logging
 import time
 from typing import Optional
 
-from openai import OpenAI
+from anthropic import Anthropic
 
 from .avatar import tavus_avatar_service
 from .livekit_service import livekit_service
@@ -12,24 +12,17 @@ from ..config.settings import settings
 
 logger = logging.getLogger(__name__)
 
-_llm_client: OpenAI | None = None
+_llm_client: Anthropic | None = None
 FINISH_MESSAGE = "This interview is finished. Thank you for participating."
 
 
-def _get_llm_client() -> OpenAI:
+def _get_llm_client() -> Anthropic:
     global _llm_client
     if _llm_client is None:
-        api_key = settings.openrouter_api_key
+        api_key = settings.anthropic_api_key
         if not api_key:
-            raise RuntimeError("OPENROUTER_API_KEY is not set")
-        _llm_client = OpenAI(
-            api_key=api_key,
-            base_url="https://openrouter.ai/api/v1",
-            default_headers={
-                "HTTP-Referer": settings.app_origin,
-                "X-Title": settings.app_name,
-            },
-        )
+            raise RuntimeError("ANTHROPIC_API_KEY is not set")
+        _llm_client = Anthropic(api_key=api_key)
     return _llm_client
 
 
@@ -342,51 +335,31 @@ class AgentService:
                 "Do not repeat the greeting or the introduction request."
             )
         user_content = f"User input: {text}\nRespond to the user's input."
-        messages = [
-            {"role": "system", "content": system_content},
-            {"role": "user", "content": user_content},
-        ]
-        model = settings.openrouter_model
+        model = settings.anthropic_model
         if not model:
-            raise RuntimeError("OPENROUTER_MODEL is not set")
+            raise RuntimeError("ANTHROPIC_MODEL is not set")
 
         def _call_llm() -> str:
             client_llm = _get_llm_client()
-            response = client_llm.chat.completions.create(
+            response = client_llm.messages.create(
                 model=model,
-                messages=messages,
+                system=system_content,
+                messages=[{"role": "user", "content": user_content}],
+                max_tokens=120,
                 temperature=0.2,
             )
-            content = None
-            data = None
-            if hasattr(response, "model_dump"):
-                try:
-                    data = response.model_dump()
-                except Exception:
-                    data = None
-
-            choices = getattr(response, "choices", None)
-            if not choices and isinstance(data, dict):
-                choices = data.get("choices")
-
-            if choices:
-                first = choices[0]
-                message = None
-                if isinstance(first, dict):
-                    message = first.get("message")
-                else:
-                    message = getattr(first, "message", None)
-
-                if isinstance(message, dict):
-                    content = message.get("content")
-                else:
-                    content = getattr(message, "content", None)
-
-            if not content and isinstance(data, dict):
-                content = data.get("output_text")
+            content_parts: list[str] = []
+            for block in getattr(response, "content", []) or []:
+                block_type = block.get("type") if isinstance(block, dict) else getattr(block, "type", None)
+                if block_type != "text":
+                    continue
+                text_part = block.get("text") if isinstance(block, dict) else getattr(block, "text", None)
+                if text_part:
+                    content_parts.append(text_part)
+            content = " ".join(content_parts).strip()
 
             if not content:
-                logger.error("LLM returned empty content; response=%s", data or response)
+                logger.error("LLM returned empty content; response=%s", response)
                 raise RuntimeError("LLM returned empty content")
 
             return content

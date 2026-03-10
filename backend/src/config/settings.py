@@ -33,11 +33,9 @@ class Settings(BaseSettings):
     edge_tts_volume: str = "+0%"
     edge_tts_pitch: str = "+0Hz"
 
-    # OpenRouter LLM Configuration
-    openrouter_api_key: str = ""
-    openrouter_model: str = ""
-    app_origin: str = "http://localhost:8000"
-    app_name: str = "My-FastAPI-App"
+    # Anthropic LLM Configuration
+    anthropic_api_key: str = ""
+    anthropic_model: str = "claude-3-5-haiku-latest"
 
     # Tavus Configuration
     tavus_api_key: str = ""
